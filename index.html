@@ -63,6 +63,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 1;
         }
 
         @media (max-width: 768px) {
@@ -99,15 +100,17 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             padding: 20px;
             border-radius: 10px;
             border: 2px solid #fff;
             text-align: center;
             color: #fff;
-            z-index: 1000;
+            z-index: 2000;
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-            display: none;
+            width: 90%;
+            max-width: 400px;
+            pointer-events: auto;
         }
 
         .edit-name-prompt h2 {
@@ -221,6 +224,12 @@
 
         .save-button {
             background: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        /* Adicionar estilo para quando o prompt estiver ativo */
+        .game-container.blur {
+            filter: blur(5px);
+            pointer-events: none;
         }
     </style>
 </head>

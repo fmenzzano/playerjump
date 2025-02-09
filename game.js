@@ -6,24 +6,32 @@ const INITIAL_SPEED = 3;  // Velocidade inicial mais alta
 const SPEED_INCREASE = 0.001;  // Aumento gradual da velocidade
 let currentSpeed = INITIAL_SPEED;
 
+// Configurações de tamanho
+const ELEMENT_SIZE = 42;  // Reduzido de 50 para 42 (redução de 15%)
+const OBSTACLE_GAP = ELEMENT_SIZE * 3;  // Será automaticamente ajustado para 126 pixels
+
+// Configurações do jogador
 const player = {
     x: 150,
     y: canvas.height/2,
-    width: 50,
-    height: 50,
+    width: ELEMENT_SIZE,    // Usar tamanho padrão
+    height: ELEMENT_SIZE,   // Usar tamanho padrão
     gravity: 0.6,  // Aumentei a gravidade para tornar o jogo mais responsivo
     velocity: 0,
     jumpForce: -12  // Aumentei a força do pulo para compensar a gravidade
 };
 
-const obstacles = [];
-const obstacleWidth = 40;
-const obstacleGap = 150;
+// Configurações dos obstáculos
+const obstacles = [];  // Restaurar array de obstáculos
 
+// Variáveis de estado do jogo
 let score = 0;
 let distance = 0;  // Nova variável para contar a distância
 let gameOver = false;
 let gameStarted = false;
+
+// Adicionar nova variável de estado no início do arquivo
+let showingRanking = false;
 
 // Carregar imagens
 const playerImg = new Image();
@@ -105,7 +113,7 @@ function jump() {
 function createObstacle() {
     const obstacle = {
         x: canvas.width,
-        y: Math.random() * (canvas.height - obstacleGap - 100) + 50,
+        y: Math.random() * (canvas.height - OBSTACLE_GAP - 100) + 50,
         passed: false
     };
     obstacles.push(obstacle);
@@ -145,34 +153,37 @@ function update() {
         
         // Verificar colisão com estrela superior
         const distanceTopStar = Math.hypot(
-            playerCenterX - (obstacle.x + obstacleWidth/2),
-            playerCenterY - (obstacle.y - obstacleWidth/2)
+            playerCenterX - (obstacle.x + ELEMENT_SIZE/2),
+            playerCenterY - (obstacle.y - ELEMENT_SIZE/2)
         );
         
         // Verificar colisão com estrela inferior
         const distanceBottomStar = Math.hypot(
-            playerCenterX - (obstacle.x + obstacleWidth/2),
-            playerCenterY - (obstacle.y + obstacleGap + obstacleWidth/2)
+            playerCenterX - (obstacle.x + ELEMENT_SIZE/2),
+            playerCenterY - (obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2)
         );
         
         // Colisão ocorre se estiver muito próximo de qualquer estrela
-        if (distanceTopStar < obstacleWidth/2 + player.width/3 || 
-            distanceBottomStar < obstacleWidth/2 + player.width/3) {
-            // Salvar pontuação imediatamente quando morre
-            if (score > 0) {
-                saveHighScore(score);
+        if (distanceTopStar < ELEMENT_SIZE/2 + player.width/3 || 
+            distanceBottomStar < ELEMENT_SIZE/2 + player.width/3) {
+            // Apenas marcar como game over e salvar pontuação
+            if (!gameOver) {  // Evitar salvar múltiplas vezes
+                gameOver = true;
+                if (score > 0) {
+                    saveHighScore(score);
+                }
             }
-            gameOver = true;
+            return;  // Parar a atualização aqui
         }
 
         // Aumentar pontuação quando passar pelo par de estrelas
-        if (!obstacle.passed && obstacle.x + obstacleWidth < player.x) {
+        if (!obstacle.passed && obstacle.x + ELEMENT_SIZE < player.x) {
             score++;  // Incrementa a pontuação ao passar pelo obstáculo
             obstacle.passed = true;
         }
 
         // Remover obstáculos fora da tela
-        if (obstacle.x + obstacleWidth < 0) {
+        if (obstacle.x + ELEMENT_SIZE < 0) {
             obstacles.splice(index, 1);
         }
     });
@@ -320,6 +331,29 @@ function drawFuturisticBadge(position) {
     }
 }
 
+// Adicionar função para desenhar texto com efeito de sombra
+function drawWastedText(text, x, y, size) {
+    ctx.save();
+    
+    // Sombra mais forte
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 5;
+    ctx.shadowOffsetY = 5;
+    
+    // Texto em vermelho mais vibrante
+    ctx.fillStyle = '#ff0000';
+    ctx.font = `900 ${size}px Orbitron`;
+    ctx.textAlign = 'center';
+    
+    // Desenhar várias vezes para efeito mais forte
+    for(let i = 0; i < 3; i++) {
+        ctx.fillText(text, x, y);
+    }
+    
+    ctx.restore();
+}
+
 function draw() {
     // Limpar canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -350,18 +384,52 @@ function draw() {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Desenhar player
+    // Desenhar player com contorno circular
     ctx.save();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+    ctx.arc(
+        player.x + ELEMENT_SIZE/2,
+        player.y + ELEMENT_SIZE/2,
+        ELEMENT_SIZE/2,
+        0,
+        Math.PI * 2
+    );
+    ctx.stroke();
+    ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
     ctx.restore();
 
-    // Desenhar obstáculos
+    // Desenhar obstáculos com contorno circular
     obstacles.forEach(obstacle => {
         ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        
+        // Contorno e imagem superior
         ctx.beginPath();
-        ctx.drawImage(starImg, obstacle.x, obstacle.y - obstacleWidth, obstacleWidth, obstacleWidth);
-        ctx.drawImage(starImg, obstacle.x, obstacle.y + obstacleGap, obstacleWidth, obstacleWidth);
+        ctx.arc(
+            obstacle.x + ELEMENT_SIZE/2,
+            obstacle.y - ELEMENT_SIZE/2,
+            ELEMENT_SIZE/2,
+            0,
+            Math.PI * 2
+        );
+        ctx.stroke();
+        ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
+        
+        // Contorno e imagem inferior
+        ctx.beginPath();
+        ctx.arc(
+            obstacle.x + ELEMENT_SIZE/2,
+            obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2,
+            ELEMENT_SIZE/2,
+            0,
+            Math.PI * 2
+        );
+        ctx.stroke();
+        ctx.drawImage(starImg, obstacle.x, obstacle.y + OBSTACLE_GAP, ELEMENT_SIZE, ELEMENT_SIZE);
+        
         ctx.restore();
     });
 
@@ -375,77 +443,119 @@ function draw() {
 
     // Verificar game over por último
     if (gameOver) {
-        // Fundo com gradiente
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
-        gradient.addColorStop(1, 'rgba(26, 26, 26, 0.95)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Game Over com efeito neon pulsante
-        const pulseIntensity = Math.sin(Date.now() * 0.005) * 5;
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 8 + pulseIntensity;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 42px Orbitron';  // Diminuído de 48px para 42px
-        ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 150);  // Ajustado de -180 para -150
-        
-        // Pontuação atual
-        ctx.shadowBlur = 5;
-        ctx.font = '28px Orbitron';  // Diminuído de 32px para 28px
-        ctx.fillText(`Sua pontuação: ${score} pontos`, canvas.width/2, canvas.height/2 - 100);  // Ajustado de -130 para -100
-        
-        // Posição com badge futurista
-        const position = getPlayerPosition(score);
-        const badge = drawFuturisticBadge(position);
-        
-        // Simplificando o texto da posição
-        ctx.fillStyle = position <= 3 ? ['#00ffff', '#7af7f7', '#4deeee'][position-1] : '#fff';
-        ctx.fillText(`Sua posição: ${position}º`, canvas.width/2, canvas.height/2 - 60);
-        
-        // Título do Ranking com efeito de linha
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 32px Orbitron';  // Diminuído de 36px para 32px
-        ctx.fillText('RANKING', canvas.width/2, canvas.height/2 - 10);  // Ajustado de -20 para -10
-        
-        // Linha decorativa
-        const lineWidth = 200;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(canvas.width/2 - lineWidth/2, canvas.height/2);  // Ajustado de -10 para 0
-        ctx.lineTo(canvas.width/2 + lineWidth/2, canvas.height/2);
-        ctx.stroke();
-        
-        // Lista de pontuações com novo estilo
-        ctx.font = '20px Orbitron';  // Diminuído de 24px para 20px
-        if (highScores.length > 0) {
-            highScores.forEach((highScore, index) => {
-                const yPos = canvas.height/2 + 30 + (index * 35);  // Ajustado espaçamento entre linhas
-                const badge = drawFuturisticBadge(index + 1);
-                
-                // Fundo para cada entrada do ranking
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.fillRect(canvas.width/2 - 180, yPos - 20, 360, 30);  // Diminuído o tamanho do retângulo
-                
-                // Texto do ranking
-                ctx.fillStyle = '#fff';
-                const formattedDate = formatDate(highScore.date);
-                ctx.fillText(`${badge} ${highScore.name} - ${highScore.score} pts (${formattedDate})`, 
-                    canvas.width/2, yPos);
-            });
+        if (!showingRanking) {
+            // Aplicar overlay cinza semi-transparente primeiro
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Efeito de dessaturação apenas no fundo
+            try {
+                ctx.filter = 'grayscale(80%)';
+                // Redesenhar o jogo em tons de cinza
+                obstacles.forEach(obstacle => {
+                    ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
+                    ctx.drawImage(starImg, obstacle.x, obstacle.y + OBSTACLE_GAP, ELEMENT_SIZE, ELEMENT_SIZE);
+                });
+                ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
+                ctx.filter = 'none';  // Resetar filtro antes de desenhar o texto
+            } catch(e) {
+                console.log('Filter not supported');
+            }
+            
+            // Texto "SE FODEU" com vermelho vibrante
+            ctx.save();
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
+            ctx.fillStyle = '#FF0000';  // Vermelho puro
+            ctx.font = `900 70px Orbitron`;
+            ctx.textAlign = 'center';
+            
+            // Desenhar várias vezes para efeito mais forte
+            for(let i = 0; i < 3; i++) {
+                ctx.fillText('SE FODEU', canvas.width/2, canvas.height/2);
+            }
+            ctx.restore();
+            
+            // Instrução mais sutil
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '18px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.fillText('Pressione ESPAÇO para ver o ranking', canvas.width/2, canvas.height/2 + 60);
         } else {
+            // Mostrar o ranking completo (código existente do game over)
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+            gradient.addColorStop(1, 'rgba(26, 26, 26, 0.95)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Game Over com efeito neon pulsante
+            const pulseIntensity = Math.sin(Date.now() * 0.005) * 5;
+            ctx.shadowColor = '#fff';
+            ctx.shadowBlur = 8 + pulseIntensity;
             ctx.fillStyle = '#fff';
-            ctx.fillText('AINDA SEM RECORDES', canvas.width/2, canvas.height/2 + 30);
-        }
+            ctx.font = 'bold 42px Orbitron';  // Diminuído de 48px para 42px
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 150);  // Ajustado de -180 para -150
+            
+            // Pontuação atual
+            ctx.shadowBlur = 5;
+            ctx.font = '28px Orbitron';  // Diminuído de 32px para 28px
+            ctx.fillText(`Sua pontuação: ${score} pontos`, canvas.width/2, canvas.height/2 - 100);  // Ajustado de -130 para -100
+            
+            // Posição com badge futurista
+            const position = getPlayerPosition(score);
+            const badge = drawFuturisticBadge(position);
+            
+            // Simplificando o texto da posição
+            ctx.fillStyle = position <= 3 ? ['#00ffff', '#7af7f7', '#4deeee'][position-1] : '#fff';
+            ctx.fillText(`Sua posição: ${position}º`, canvas.width/2, canvas.height/2 - 60);
+            
+            // Título do Ranking com efeito de linha
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 32px Orbitron';  // Diminuído de 36px para 32px
+            ctx.fillText('RANKING', canvas.width/2, canvas.height/2 - 10);  // Ajustado de -20 para -10
+            
+            // Linha decorativa
+            const lineWidth = 200;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2 - lineWidth/2, canvas.height/2);  // Ajustado de -10 para 0
+            ctx.lineTo(canvas.width/2 + lineWidth/2, canvas.height/2);
+            ctx.stroke();
+            
+            // Lista de pontuações com novo estilo
+            ctx.font = '20px Orbitron';  // Diminuído de 24px para 20px
+            if (highScores.length > 0) {
+                highScores.forEach((highScore, index) => {
+                    const yPos = canvas.height/2 + 30 + (index * 35);  // Ajustado espaçamento entre linhas
+                    const badge = drawFuturisticBadge(index + 1);
+                    
+                    // Fundo para cada entrada do ranking
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.fillRect(canvas.width/2 - 180, yPos - 20, 360, 30);  // Diminuído o tamanho do retângulo
+                    
+                    // Texto do ranking
+                    ctx.fillStyle = '#fff';
+                    const formattedDate = formatDate(highScore.date);
+                    ctx.fillText(`${badge} ${highScore.name} - ${highScore.score} pts (${formattedDate})`, 
+                        canvas.width/2, yPos);
+                });
+            } else {
+                ctx.fillStyle = '#fff';
+                ctx.fillText('AINDA SEM RECORDES', canvas.width/2, canvas.height/2 + 30);
+            }
 
-        // Botão de reinício com efeito neon pulsante
-        const buttonPulse = Math.sin(Date.now() * 0.005) * 3;
-        ctx.shadowBlur = 5 + buttonPulse;
-        ctx.font = '20px Orbitron';  // Diminuído a fonte do botão
-        drawNeonButton('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 40);
+            // Botão de reinício com efeito neon pulsante
+            const buttonPulse = Math.sin(Date.now() * 0.005) * 3;
+            ctx.shadowBlur = 5 + buttonPulse;
+            ctx.font = '20px Orbitron';  // Diminuído a fonte do botão
+            drawNeonButton('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 40);
+        }
     }
 }
 
@@ -456,50 +566,58 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Modificar o event listener do game over para não salvar novamente
+// Modificar o event listener de keydown
 document.addEventListener('keydown', (event) => {
-    if (isEditingName) {
-        if (event.key === 'Enter') {
-            // Salvar o novo nome
-            if (editingNameText.trim()) {
-                playerName = editingNameText.trim();
-                localStorage.setItem('playerName', playerName);
-            }
-            isEditingName = false;
-        } else if (event.key === 'Escape') {
-            // Cancelar edição
-            isEditingName = false;
-        } else if (event.key === 'Backspace') {
-            // Apagar caractere
-            editingNameText = editingNameText.slice(0, -1);
-        } else if (event.key.length === 1) {
-            // Adicionar caractere (limitar a 15 caracteres)
-            if (editingNameText.length < 15) {
-                editingNameText += event.key;
-            }
-        }
+    const prompt = document.querySelector('.edit-name-prompt');
+    const input = document.getElementById('nameInput');
+    
+    // Se o input estiver focado, permitir digitação
+    if (document.activeElement === input) {
+        // Permitir digitação normal no input
+        return;
+    }
+    
+    // Se o prompt estiver visível mas o input não estiver focado, 
+    // prevenir teclas de afetar o jogo
+    if (prompt.style.display === 'block') {
         event.preventDefault();
         return;
     }
-
+    
     // Atalho para adicionar pontos (apenas durante o jogo)
     if (event.key.toLowerCase() === 'r' && gameStarted && !gameOver) {
         score += 10;
         return;
     }
 
+    // Tecla espaço só funciona se o prompt não estiver visível
     if (event.code === 'Space') {
         if (gameOver) {
-            // Reiniciar jogo
-            gameOver = false;
-            score = 0;
-            distance = 0;
-            currentSpeed = INITIAL_SPEED;
-            obstacles.length = 0;
-            player.y = canvas.height/2;
-            player.velocity = 0;
+            if (!showingRanking) {
+                // Primeiro espaço após game over mostra o ranking
+                showingRanking = true;
+            } else {
+                // Segundo espaço reinicia o jogo
+                gameOver = false;
+                showingRanking = false;
+                score = 0;
+                distance = 0;
+                currentSpeed = INITIAL_SPEED;
+                obstacles.length = 0;
+                player.y = canvas.height/2;
+                player.velocity = 0;
+            }
         }
-        jump();
+        if (!prompt.style.display || prompt.style.display === 'none') {
+            jump();
+        }
+    }
+});
+
+// Adicionar event listener para o input
+document.getElementById('nameInput').addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+        handleNameInput();
     }
 });
 
@@ -507,14 +625,18 @@ document.addEventListener('touchstart', (event) => {
     event.preventDefault();
     
     if (gameOver) {
-        // Reiniciar jogo ao tocar na tela quando estiver em game over
-        gameOver = false;
-        score = 0;
-        distance = 0;
-        currentSpeed = INITIAL_SPEED;
-        obstacles.length = 0;
-        player.y = canvas.height/2;
-        player.velocity = 0;
+        if (!showingRanking) {
+            showingRanking = true;
+        } else {
+            gameOver = false;
+            showingRanking = false;
+            score = 0;
+            distance = 0;
+            currentSpeed = INITIAL_SPEED;
+            obstacles.length = 0;
+            player.y = canvas.height/2;
+            player.velocity = 0;
+        }
         return;
     }
     
@@ -527,6 +649,10 @@ document.addEventListener('touchstart', (event) => {
 function showEditNamePrompt() {
     const prompt = document.querySelector('.edit-name-prompt');
     const input = document.getElementById('nameInput');
+    const gameContainer = document.querySelector('.game-container');
+    
+    // Adicionar blur ao fundo
+    gameContainer.classList.add('blur');
     
     // Garantir que o input existe e está acessível
     if (!input) {
@@ -534,37 +660,60 @@ function showEditNamePrompt() {
         return;
     }
     
-    // Limpar qualquer handler existente
-    input.removeEventListener('keypress', handleInputKeypress);
-    input.addEventListener('keypress', handleInputKeypress);
-    
     input.value = playerName;
-    adjustEditPromptForMobile();
     prompt.style.display = 'block';
     
     // Focar no input após um pequeno delay
     setTimeout(() => {
         input.focus();
-        // Em alguns dispositivos móveis, pode ser necessário rolar a tela
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
 }
 
-// Separar o handler do keypress em uma função
-function handleInputKeypress(event) {
-    if (event.key === 'Enter') {
-        handleNameInput();
-    }
-}
-
-// Modificar a função de inicialização
-window.addEventListener('load', () => {
-    // Inicializar os event listeners do input
+// Modificar a função handleNameInput
+function handleNameInput() {
     const input = document.getElementById('nameInput');
-    if (input) {
-        input.addEventListener('keypress', handleInputKeypress);
+    const prompt = document.querySelector('.edit-name-prompt');
+    const gameContainer = document.querySelector('.game-container');
+    const newName = input.value.trim();
+    
+    if (newName) {
+        playerName = newName;
+        localStorage.setItem('playerName', playerName);
     }
     
+    prompt.style.display = 'none';
+    gameContainer.classList.remove('blur');
+    hasShownNamePrompt = true;
+    
+    // Reiniciar o estado do jogo
+    gameStarted = false;
+    gameOver = false;
+    score = 0;
+    obstacles.length = 0;
+    player.y = canvas.height/2;
+    player.velocity = 0;
+}
+
+// Modificar a função skipNameEdit
+function skipNameEdit() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    const gameContainer = document.querySelector('.game-container');
+    
+    prompt.style.display = 'none';
+    gameContainer.classList.remove('blur');
+    hasShownNamePrompt = true;
+    
+    // Reiniciar o estado do jogo
+    gameStarted = false;
+    gameOver = false;
+    score = 0;
+    obstacles.length = 0;
+    player.y = canvas.height/2;
+    player.velocity = 0;
+}
+
+// Remover o event listener handleInputKeypress que não é mais necessário
+window.addEventListener('load', () => {
     // Iniciar o jogo
     gameLoop();
     
@@ -706,38 +855,6 @@ document.addEventListener('touchmove', (event) => {
 document.addEventListener('dblclick', (event) => {
     event.preventDefault();
 });
-
-// Função para lidar com o clique no botão do prompt
-function handleNameInput() {
-    const input = document.getElementById('nameInput');
-    const newName = input.value.trim();
-    
-    if (newName) {
-        playerName = newName;
-        localStorage.setItem('playerName', playerName);
-    }
-    
-    const prompt = document.querySelector('.edit-name-prompt');
-    prompt.style.display = 'none';
-    hasShownNamePrompt = true;
-}
-
-function skipNameEdit() {
-    const prompt = document.querySelector('.edit-name-prompt');
-    prompt.style.display = 'none';
-    hasShownNamePrompt = true;
-}
-
-// Modificar o estilo do modal de edição de nome para tela vertical
-function adjustEditPromptForMobile() {
-    const prompt = document.querySelector('.edit-name-prompt');
-    if (window.innerWidth < 500) {
-        prompt.style.width = '90%';
-        prompt.style.maxWidth = '400px';
-    } else {
-        prompt.style.width = 'auto';
-    }
-}
 
 // Adicionar listener para ajustar o prompt quando a orientação mudar
 window.addEventListener('orientationchange', () => {
