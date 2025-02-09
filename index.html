@@ -37,7 +37,7 @@
             font-family: 'Orbitron', sans-serif;
             overflow: hidden;
             position: relative;
-            padding: 10px;
+            padding: 0;
         }
         
         body::before {
@@ -52,7 +52,7 @@
         
         .game-container {
             position: relative;
-            padding: 10px;
+            padding: 5px;
             background: rgba(0, 0, 0, 0.8);
             border-radius: 15px;
             border: 1px solid #fff;
@@ -64,15 +64,29 @@
             align-items: center;
             justify-content: center;
             z-index: 1;
+            margin: 5px;
         }
 
         @media (max-width: 768px) {
+            body {
+                padding: 0;
+            }
+            
             .game-container {
-                padding: 10px;
+                padding: 5px;
+                margin: 5px;
+                border-width: 1px;
             }
             
             canvas {
                 border-width: 1px;
+            }
+        }
+
+        @media (max-height: 500px) {
+            .game-container {
+                padding: 2px;
+                margin: 2px;
             }
         }
 
