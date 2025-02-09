@@ -430,45 +430,45 @@ function drawGameOver() {
 }
 
 function drawRankingScreen() {
-    // Background mais suave
+    // Background
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');  // Reduzido de 0.95 para 0.8
-    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.8)');  // Reduzido de 0.95 para 0.8
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.8)');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Título
+    // Título ainda mais para cima
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 32px Orbitron';  // Reduzido de 42px para 32px
+    ctx.font = 'bold 32px Orbitron';
     ctx.textAlign = 'center';
-    ctx.fillText('RANKING GLOBAL', canvas.width/2, 80);  // Ajustado de 100 para 80
+    ctx.fillText('RANKING GLOBAL', canvas.width/2, 40);  // Reduzido de 45 para 40
     
-    // Sua pontuação
-    ctx.font = '24px Orbitron';  // Reduzido de 28px para 24px
-    ctx.fillText(`Sua pontuação: ${score} pts`, canvas.width/2, 130);  // Ajustado de 160 para 130
+    // Sua pontuação mais para cima
+    ctx.font = '24px Orbitron';
+    ctx.fillText(`Sua pontuação: ${score} pts`, canvas.width/2, 70);  // Reduzido de 80 para 70
     
-    // Título do TOP 3
-    ctx.font = '20px Orbitron';  // Reduzido de 24px para 20px
-    ctx.fillText('TOP 3 JOGADORES', canvas.width/2, 180);  // Ajustado de 220 para 180
-
     // Desenhar scores
     if (cachedScores) {
-        cachedScores.forEach((highScore, index) => {
-            const yPos = 220 + (index * 40);  // Reduzido de 50 para 40
+        // Top 3 começa mais acima
+        cachedScores.slice(0, 3).forEach((highScore, index) => {
+            const yPos = 110 + (index * 30);  // Reduzido de 120 para 110 e de 32 para 30
+            const rectHeight = 25;
+            const rectY = yPos - rectHeight/2;
+            const textY = yPos + 5;
             
-            // Fundo da entrada (mais largo mas menos alto)
+            // Fundo com destaque para top 3 (altura menor)
             ctx.fillStyle = highScore.name === playerName ? 
                 'rgba(0, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)';
-            ctx.fillRect(canvas.width/2 - 250, yPos - 20, 500, 35);  // Altura reduzida de 45 para 35
+            ctx.fillRect(canvas.width/2 - 250, rectY, 500, rectHeight);
             
-            // Badge (ajustado para nova altura)
+            // Badge com destaque (fonte menor)
             ctx.fillStyle = '#fff';
-            ctx.font = '16px Orbitron';  // Reduzido de 18px para 16px
+            ctx.font = '18px Orbitron';
             const badge = drawFuturisticBadge(index + 1);
             ctx.textAlign = 'center';
-            ctx.fillText(badge, canvas.width/2 - 180, yPos);
+            ctx.fillText(badge, canvas.width/2 - 180, textY);
             
-            // Nome
+            // Nome e pontuação com destaque
             const maxNameLength = 15;
             const displayName = highScore.name.length > maxNameLength ? 
                 highScore.name.substring(0, maxNameLength) + '...' : 
@@ -476,24 +476,54 @@ function drawRankingScreen() {
             
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'left';
-            ctx.fillText(displayName, canvas.width/2 - 120, yPos);
+            ctx.fillText(displayName, canvas.width/2 - 120, textY);
             
-            // Pontuação
             ctx.fillStyle = '#0ff';
             ctx.textAlign = 'right';
-            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 230, yPos);
+            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 230, textY);
+        });
+
+        // Posições 4-10 começam mais acima e mais compactas
+        cachedScores.slice(3, 10).forEach((highScore, index) => {
+            const yPos = 210 + (index * 23);  // Reduzido de 220 para 210 e de 25 para 23
+            
+            // Fundo mais sutil
+            ctx.fillStyle = highScore.name === playerName ? 
+                'rgba(0, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+            ctx.fillRect(canvas.width/2 - 200, yPos - 15, 400, 25);
+            
+            // Badge menor
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '14px Orbitron';
+            const badge = drawFuturisticBadge(index + 4);
+            ctx.textAlign = 'center';
+            ctx.fillText(badge, canvas.width/2 - 150, yPos);
+            
+            // Nome e pontuação menores
+            const maxNameLength = 15;
+            const displayName = highScore.name.length > maxNameLength ? 
+                highScore.name.substring(0, maxNameLength) + '...' : 
+                highScore.name;
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.textAlign = 'left';
+            ctx.fillText(displayName, canvas.width/2 - 100, yPos);
+            
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 180, yPos);
         });
     } else {
         ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';  // Restaurar alinhamento central para mensagem de carregamento
+        ctx.textAlign = 'center';
         ctx.fillText('Carregando ranking...', canvas.width/2, 220);
     }
 
-    // Restaurar alinhamento central para a instrução de reinício
-    ctx.textAlign = 'center';
+    // Instrução para reiniciar mais abaixo e centralizada
+    ctx.textAlign = 'center';  // Garantir alinhamento central
     ctx.fillStyle = '#fff';
-    ctx.font = '18px Orbitron';
-    ctx.fillText('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 30);
+    ctx.font = '18px Orbitron';  // Definir fonte antes de desenhar
+    ctx.fillText('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 20);
 }
 
 function draw() {
@@ -755,14 +785,9 @@ async function getGlobalScores() {
             .from('scores')
             .select('*')
             .order('score', { ascending: false })
-            .limit(3);  // Limitando a 3 scores
+            .limit(10);  // Alterado de 3 para 10
         
-        if (error) {
-            console.error('Erro ao buscar scores:', error);
-            throw error;
-        }
-        
-        console.log('Dados recebidos:', data); // Debug
+        if (error) throw error;
         return data || [];
     } catch (error) {
         console.error('Erro ao buscar pontuações:', error);
