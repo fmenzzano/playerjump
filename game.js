@@ -51,7 +51,7 @@ let hasShownNamePrompt = false;
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
-    const containerWidth = container.clientWidth - 20; // Reduzido padding total
+    const containerWidth = container.clientWidth - 20;
     const containerHeight = container.clientHeight - 20;
     
     // Calcular escala mantendo proporção 2:1
@@ -67,12 +67,14 @@ function resizeCanvas() {
     canvas.style.width = (canvas.width * canvasScale) + 'px';
     canvas.style.height = (canvas.height * canvasScale) + 'px';
 
-    // Mostrar mensagem de rotação apenas em dispositivos muito estreitos
+    // Mostrar mensagem de rotação apenas depois que o nome foi editado
     const rotateMessage = document.querySelector('.rotate-message');
-    if (window.innerWidth < 500 && window.innerHeight > window.innerWidth) {
+    if (window.innerWidth < 500 && window.innerHeight > window.innerWidth && hasShownNamePrompt) {
         rotateMessage.style.display = 'flex';
+        canvas.style.opacity = '0.3';  // Diminui a opacidade do jogo quando mostrar a mensagem
     } else {
         rotateMessage.style.display = 'none';
+        canvas.style.opacity = '1';  // Restaura a opacidade normal
     }
 }
 
@@ -521,8 +523,58 @@ document.addEventListener('touchstart', (event) => {
     }
 });
 
-// Iniciar jogo
-gameLoop();
+// Modificar a função showEditNamePrompt
+function showEditNamePrompt() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    const input = document.getElementById('nameInput');
+    
+    // Garantir que o input existe e está acessível
+    if (!input) {
+        console.error('Input não encontrado');
+        return;
+    }
+    
+    // Limpar qualquer handler existente
+    input.removeEventListener('keypress', handleInputKeypress);
+    input.addEventListener('keypress', handleInputKeypress);
+    
+    input.value = playerName;
+    adjustEditPromptForMobile();
+    prompt.style.display = 'block';
+    
+    // Focar no input após um pequeno delay
+    setTimeout(() => {
+        input.focus();
+        // Em alguns dispositivos móveis, pode ser necessário rolar a tela
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+}
+
+// Separar o handler do keypress em uma função
+function handleInputKeypress(event) {
+    if (event.key === 'Enter') {
+        handleNameInput();
+    }
+}
+
+// Modificar a função de inicialização
+window.addEventListener('load', () => {
+    // Inicializar os event listeners do input
+    const input = document.getElementById('nameInput');
+    if (input) {
+        input.addEventListener('keypress', handleInputKeypress);
+    }
+    
+    // Iniciar o jogo
+    gameLoop();
+    
+    // Se não tiver nome, mostrar o prompt
+    if (!playerName || playerName === 'Desconhecido') {
+        setTimeout(() => {
+            showEditNamePrompt();
+        }, 500);
+    }
+});
 
 // Adicionar após as variáveis iniciais
 function cleanUndefinedScores() {
@@ -634,7 +686,7 @@ canvas.addEventListener('click', (event) => {
         const y = (event.clientY - rect.top) / canvasScale;
         
         if (isClickOnButton(x, y, canvas.height/2 + 30)) {
-            startEditingName();
+            showEditNamePrompt();
         }
     }
 });
@@ -655,16 +707,39 @@ document.addEventListener('dblclick', (event) => {
     event.preventDefault();
 });
 
-// Função para mostrar prompt de edição de nome
-function showEditNamePrompt() {
-    const prompt = document.querySelector('.edit-name-prompt');
-    prompt.style.display = 'block';
-}
-
 // Função para lidar com o clique no botão do prompt
-function handleEditNamePrompt() {
+function handleNameInput() {
+    const input = document.getElementById('nameInput');
+    const newName = input.value.trim();
+    
+    if (newName) {
+        playerName = newName;
+        localStorage.setItem('playerName', playerName);
+    }
+    
     const prompt = document.querySelector('.edit-name-prompt');
     prompt.style.display = 'none';
-    startEditingName();
     hasShownNamePrompt = true;
-} 
+}
+
+function skipNameEdit() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    prompt.style.display = 'none';
+    hasShownNamePrompt = true;
+}
+
+// Modificar o estilo do modal de edição de nome para tela vertical
+function adjustEditPromptForMobile() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    if (window.innerWidth < 500) {
+        prompt.style.width = '90%';
+        prompt.style.maxWidth = '400px';
+    } else {
+        prompt.style.width = 'auto';
+    }
+}
+
+// Adicionar listener para ajustar o prompt quando a orientação mudar
+window.addEventListener('orientationchange', () => {
+    adjustEditPromptForMobile();
+}); 
