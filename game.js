@@ -63,6 +63,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Criar cliente Supabase (corrigir esta linha)
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Variável global para armazenar a posição
+let playerPosition = '?';
+
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
@@ -255,7 +258,7 @@ function drawStartScreen() {
     );
     ctx.restore();
     
-    // Título com efeito neon - ajustado
+    // Título com efeito neon
     ctx.fillStyle = '#fff';
     ctx.shadowColor = '#fff';
     ctx.shadowBlur = 8;
@@ -263,7 +266,7 @@ function drawStartScreen() {
     ctx.textAlign = 'center';
     ctx.fillText('Player Jump', canvas.width/2, canvas.height/2 - 40);
     
-    // Textos com efeito futurista - ajustados
+    // Textos com efeito futurista
     ctx.shadowBlur = 5;
     ctx.font = '24px Orbitron';
     ctx.fillStyle = '#fff';
@@ -272,12 +275,12 @@ function drawStartScreen() {
     // Botão para editar nome
     drawNeonButton('EDITAR NOME', canvas.width/2, canvas.height/2 + 30);
     
-    // Botão de início estilizado - ajustado (movido para baixo)
+    // Botão de início estilizado
     drawNeonButton('PRESSIONE ESPAÇO PARA COMEÇAR', canvas.width/2, canvas.height/2 + 80);
     
-    // Texto de instrução - ajustado e com mais espaço (movido para baixo)
+    // Texto de instrução
     ctx.fillStyle = '#fff';
-    ctx.fillText('Desvie da Mariana!', canvas.width/2, canvas.height/2 + 130);
+    ctx.fillText('Desvie dos obstáculos!', canvas.width/2, canvas.height/2 + 130);
 
     // Mostrar prompt de edição de nome se ainda não foi mostrado
     if (!hasShownNamePrompt && !isEditingName) {
@@ -429,6 +432,26 @@ function drawGameOver() {
     }
 }
 
+// Adicionar função para buscar posição do jogador no ranking
+async function getPlayerRanking(playerName, currentScore) {
+    try {
+        // Buscar todas as pontuações maiores que a do jogador atual
+        const { data, error } = await supabaseClient
+            .from('scores')
+            .select('score')
+            .gt('score', currentScore)
+            .order('score', { ascending: false });
+            
+        if (error) throw error;
+        
+        // A posição será o número de pontuações maiores + 1
+        return (data?.length || 0) + 1;
+    } catch (error) {
+        console.error('Erro ao buscar posição:', error);
+        return '?';
+    }
+}
+
 function drawRankingScreen() {
     // Background
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -441,11 +464,16 @@ function drawRankingScreen() {
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 32px Orbitron';
     ctx.textAlign = 'center';
-    ctx.fillText('RANKING GLOBAL', canvas.width/2, 40);  // Reduzido de 45 para 40
+    ctx.fillText('RANKING GLOBAL', canvas.width/2, 40);
     
-    // Sua pontuação mais para cima
+    // Sua pontuação e posição
     ctx.font = '24px Orbitron';
-    ctx.fillText(`Sua pontuação: ${score} pts`, canvas.width/2, 70);  // Reduzido de 80 para 70
+    ctx.fillText(`Sua Posição: ${playerPosition}   |   Sua Pontuação: ${score} pts`, canvas.width/2, 70);
+    
+    // Atualizar a posição do jogador em background
+    getPlayerRanking(playerName, score).then(pos => {
+        playerPosition = pos;
+    });
     
     // Desenhar scores
     if (cachedScores) {
