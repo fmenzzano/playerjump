@@ -14,11 +14,11 @@ const OBSTACLE_GAP = ELEMENT_SIZE * 3;  // Será automaticamente ajustado para 1
 const player = {
     x: 150,
     y: canvas.height/2,
-    width: ELEMENT_SIZE,    // Usar tamanho padrão
-    height: ELEMENT_SIZE,   // Usar tamanho padrão
-    gravity: 0.6,  // Aumentei a gravidade para tornar o jogo mais responsivo
+    width: ELEMENT_SIZE,    
+    height: ELEMENT_SIZE,   
+    gravity: 0.6,          
     velocity: 0,
-    jumpForce: -12  // Aumentei a força do pulo para compensar a gravidade
+    jumpForce: -8          // Reduzido de -12 para -8 para um pulo menor
 };
 
 // Configurações dos obstáculos
