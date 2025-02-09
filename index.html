@@ -248,7 +248,106 @@
             filter: blur(5px);
             pointer-events: none;
         }
+
+        .global-ranking {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #fff;
+            color: #fff;
+            z-index: 1000;
+        }
+
+        .ranking-toggle {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #fff;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .ranking-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .ranking-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .ranking-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .ranking-item.current-player {
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid #0ff;
+        }
+
+        .position {
+            min-width: 60px;
+        }
+
+        .player-name {
+            flex: 1;
+            text-align: left;
+            margin: 0 10px;
+        }
+
+        .score {
+            min-width: 100px;
+            text-align: right;
+            color: #0ff;
+        }
+
+        .date {
+            min-width: 120px;
+            text-align: right;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .loading, .no-scores, .error {
+            padding: 20px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .error {
+            color: #ff4444;
+        }
+
+        .ranking-toggle {
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .ranking-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script>
+        // Remover esta linha
+        // const { createClient } = supabase;
+    </script>
 </head>
 <body>
     <div class="game-container">
@@ -274,6 +373,15 @@
             <button onclick="skipNameEdit()" class="skip-button">PULAR</button>
         </div>
     </div>
+    <div class="global-ranking" style="display: none;">
+        <h2>🌎 Ranking Global</h2>
+        <div class="ranking-list">
+            <!-- Scores serão inseridos aqui -->
+        </div>
+    </div>
+    <button id="toggleRanking" class="ranking-toggle">
+        Alternar Ranking
+    </button>
     <script src="game.js"></script>
 </body>
 </html> 

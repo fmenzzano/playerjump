@@ -56,6 +56,13 @@ let canvasScale = 1;
 // Adicionar no início do arquivo após as variáveis existentes
 let hasShownNamePrompt = false;
 
+// Modificar a inicialização do Supabase
+const SUPABASE_URL = 'https://nomxwepvrfexggvhbqnp.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbXh3ZXB2cmZleGdndmhicW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkxMzM5MTQsImV4cCI6MjA1NDcwOTkxNH0.El9x92R-0i5dnNBMKkIr5svyUbSwjTg6ep7vx3mDpPY';
+
+// Criar cliente Supabase (corrigir esta linha)
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
@@ -94,10 +101,13 @@ function requestPlayerName() {
 }
 
 function formatDate(date) {
-    return new Date(date).toLocaleDateString('pt-BR', {
+    const d = new Date(date);
+    return d.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
-        year: '2-digit'
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
     });
 }
 
@@ -147,33 +157,41 @@ function update() {
     obstacles.forEach((obstacle, index) => {
         obstacle.x -= currentSpeed;
 
-        // Verificar colisão com mais precisão
-        const playerCenterX = player.x + player.width/2;
-        const playerCenterY = player.y + player.height/2;
+        // Verificar colisão com mais precisão usando os círculos
+        const playerCenterX = player.x + ELEMENT_SIZE/2;
+        const playerCenterY = player.y + ELEMENT_SIZE/2;
+        const playerRadius = ELEMENT_SIZE/2;
         
-        // Verificar colisão com estrela superior
-        const distanceTopStar = Math.hypot(
-            playerCenterX - (obstacle.x + ELEMENT_SIZE/2),
-            playerCenterY - (obstacle.y - ELEMENT_SIZE/2)
+        // Centro e raio da estrela superior
+        const topStarCenterX = obstacle.x + ELEMENT_SIZE/2;
+        const topStarCenterY = obstacle.y - ELEMENT_SIZE/2;
+        const starRadius = ELEMENT_SIZE/2;
+        
+        // Centro da estrela inferior
+        const bottomStarCenterX = obstacle.x + ELEMENT_SIZE/2;
+        const bottomStarCenterY = obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2;
+
+        // Calcular distância exata entre os centros
+        const distanceTopStar = Math.sqrt(
+            Math.pow(playerCenterX - topStarCenterX, 2) + 
+            Math.pow(playerCenterY - topStarCenterY, 2)
         );
         
-        // Verificar colisão com estrela inferior
-        const distanceBottomStar = Math.hypot(
-            playerCenterX - (obstacle.x + ELEMENT_SIZE/2),
-            playerCenterY - (obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2)
+        const distanceBottomStar = Math.sqrt(
+            Math.pow(playerCenterX - bottomStarCenterX, 2) + 
+            Math.pow(playerCenterY - bottomStarCenterY, 2)
         );
         
-        // Colisão ocorre se estiver muito próximo de qualquer estrela
-        if (distanceTopStar < ELEMENT_SIZE/2 + player.width/3 || 
-            distanceBottomStar < ELEMENT_SIZE/2 + player.width/3) {
-            // Apenas marcar como game over e salvar pontuação
-            if (!gameOver) {  // Evitar salvar múltiplas vezes
+        // Colisão ocorre quando a soma dos raios é maior que a distância entre os centros
+        const sumOfRadii = playerRadius + starRadius;
+        if (distanceTopStar <= sumOfRadii || distanceBottomStar <= sumOfRadii) {
+            if (!gameOver) {
                 gameOver = true;
                 if (score > 0) {
                     saveHighScore(score);
                 }
             }
-            return;  // Parar a atualização aqui
+            return;
         }
 
         // Aumentar pontuação quando passar pelo par de estrelas
@@ -354,6 +372,110 @@ function drawWastedText(text, x, y, size) {
     ctx.restore();
 }
 
+// Modificar a função drawGameOver para melhor gerenciamento de estado
+let cachedScores = null;  // Cache para os scores
+
+async function fetchAndCacheScores() {
+    try {
+        const scores = await getGlobalScores();
+        cachedScores = scores;
+        return scores;
+    } catch (error) {
+        console.error('Erro ao buscar scores:', error);
+        return [];
+    }
+}
+
+function drawGameOver() {
+    // Aplicar overlay cinza semi-transparente
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    if (!showingRanking) {
+        // Mostrar mensagem "SE FODEU"
+        drawWastedText('SE FODEU', canvas.width/2, canvas.height/2, 70);
+        
+        // Instrução
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '18px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.fillText('Pressione ESPAÇO para ver o ranking', canvas.width/2, canvas.height/2 + 60);
+        
+        // Pré-carregar scores para a próxima tela
+        fetchAndCacheScores();
+    } else {
+        // Mostrar ranking global
+        drawRankingScreen();
+    }
+}
+
+function drawRankingScreen() {
+    // Background
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.95)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Título
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Orbitron';  // Reduzido de 42px para 32px
+    ctx.textAlign = 'center';
+    ctx.fillText('RANKING GLOBAL', canvas.width/2, 80);  // Ajustado de 100 para 80
+    
+    // Sua pontuação
+    ctx.font = '24px Orbitron';  // Reduzido de 28px para 24px
+    ctx.fillText(`Sua pontuação: ${score} pts`, canvas.width/2, 130);  // Ajustado de 160 para 130
+    
+    // Título do TOP 3
+    ctx.font = '20px Orbitron';  // Reduzido de 24px para 20px
+    ctx.fillText('TOP 3 JOGADORES', canvas.width/2, 180);  // Ajustado de 220 para 180
+
+    // Desenhar scores
+    if (cachedScores) {
+        cachedScores.forEach((highScore, index) => {
+            const yPos = 220 + (index * 40);  // Reduzido de 50 para 40
+            
+            // Fundo da entrada (mais largo mas menos alto)
+            ctx.fillStyle = highScore.name === playerName ? 
+                'rgba(0, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+            ctx.fillRect(canvas.width/2 - 250, yPos - 20, 500, 35);  // Altura reduzida de 45 para 35
+            
+            // Badge (ajustado para nova altura)
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px Orbitron';  // Reduzido de 18px para 16px
+            const badge = drawFuturisticBadge(index + 1);
+            ctx.textAlign = 'center';
+            ctx.fillText(badge, canvas.width/2 - 180, yPos);
+            
+            // Nome
+            const maxNameLength = 15;
+            const displayName = highScore.name.length > maxNameLength ? 
+                highScore.name.substring(0, maxNameLength) + '...' : 
+                highScore.name;
+            
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'left';
+            ctx.fillText(displayName, canvas.width/2 - 120, yPos);
+            
+            // Pontuação
+            ctx.fillStyle = '#0ff';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 230, yPos);
+        });
+    } else {
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';  // Restaurar alinhamento central para mensagem de carregamento
+        ctx.fillText('Carregando ranking...', canvas.width/2, 220);
+    }
+
+    // Restaurar alinhamento central para a instrução de reinício
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = '18px Orbitron';
+    ctx.fillText('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 30);
+}
+
 function draw() {
     // Limpar canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -443,119 +565,7 @@ function draw() {
 
     // Verificar game over por último
     if (gameOver) {
-        if (!showingRanking) {
-            // Aplicar overlay cinza semi-transparente primeiro
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Efeito de dessaturação apenas no fundo
-            try {
-                ctx.filter = 'grayscale(80%)';
-                // Redesenhar o jogo em tons de cinza
-                obstacles.forEach(obstacle => {
-                    ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
-                    ctx.drawImage(starImg, obstacle.x, obstacle.y + OBSTACLE_GAP, ELEMENT_SIZE, ELEMENT_SIZE);
-                });
-                ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
-                ctx.filter = 'none';  // Resetar filtro antes de desenhar o texto
-            } catch(e) {
-                console.log('Filter not supported');
-            }
-            
-            // Texto "SE FODEU" com vermelho vibrante
-            ctx.save();
-            ctx.shadowColor = '#000';
-            ctx.shadowBlur = 20;
-            ctx.shadowOffsetX = 5;
-            ctx.shadowOffsetY = 5;
-            ctx.fillStyle = '#FF0000';  // Vermelho puro
-            ctx.font = `900 70px Orbitron`;
-            ctx.textAlign = 'center';
-            
-            // Desenhar várias vezes para efeito mais forte
-            for(let i = 0; i < 3; i++) {
-                ctx.fillText('SE FODEU', canvas.width/2, canvas.height/2);
-            }
-            ctx.restore();
-            
-            // Instrução mais sutil
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '18px Orbitron';
-            ctx.textAlign = 'center';
-            ctx.fillText('Pressione ESPAÇO para ver o ranking', canvas.width/2, canvas.height/2 + 60);
-        } else {
-            // Mostrar o ranking completo (código existente do game over)
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
-            gradient.addColorStop(1, 'rgba(26, 26, 26, 0.95)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Game Over com efeito neon pulsante
-            const pulseIntensity = Math.sin(Date.now() * 0.005) * 5;
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 8 + pulseIntensity;
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 42px Orbitron';  // Diminuído de 48px para 42px
-            ctx.textAlign = 'center';
-            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 150);  // Ajustado de -180 para -150
-            
-            // Pontuação atual
-            ctx.shadowBlur = 5;
-            ctx.font = '28px Orbitron';  // Diminuído de 32px para 28px
-            ctx.fillText(`Sua pontuação: ${score} pontos`, canvas.width/2, canvas.height/2 - 100);  // Ajustado de -130 para -100
-            
-            // Posição com badge futurista
-            const position = getPlayerPosition(score);
-            const badge = drawFuturisticBadge(position);
-            
-            // Simplificando o texto da posição
-            ctx.fillStyle = position <= 3 ? ['#00ffff', '#7af7f7', '#4deeee'][position-1] : '#fff';
-            ctx.fillText(`Sua posição: ${position}º`, canvas.width/2, canvas.height/2 - 60);
-            
-            // Título do Ranking com efeito de linha
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 32px Orbitron';  // Diminuído de 36px para 32px
-            ctx.fillText('RANKING', canvas.width/2, canvas.height/2 - 10);  // Ajustado de -20 para -10
-            
-            // Linha decorativa
-            const lineWidth = 200;
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width/2 - lineWidth/2, canvas.height/2);  // Ajustado de -10 para 0
-            ctx.lineTo(canvas.width/2 + lineWidth/2, canvas.height/2);
-            ctx.stroke();
-            
-            // Lista de pontuações com novo estilo
-            ctx.font = '20px Orbitron';  // Diminuído de 24px para 20px
-            if (highScores.length > 0) {
-                highScores.forEach((highScore, index) => {
-                    const yPos = canvas.height/2 + 30 + (index * 35);  // Ajustado espaçamento entre linhas
-                    const badge = drawFuturisticBadge(index + 1);
-                    
-                    // Fundo para cada entrada do ranking
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                    ctx.fillRect(canvas.width/2 - 180, yPos - 20, 360, 30);  // Diminuído o tamanho do retângulo
-                    
-                    // Texto do ranking
-                    ctx.fillStyle = '#fff';
-                    const formattedDate = formatDate(highScore.date);
-                    ctx.fillText(`${badge} ${highScore.name} - ${highScore.score} pts (${formattedDate})`, 
-                        canvas.width/2, yPos);
-                });
-            } else {
-                ctx.fillStyle = '#fff';
-                ctx.fillText('AINDA SEM RECORDES', canvas.width/2, canvas.height/2 + 30);
-            }
-
-            // Botão de reinício com efeito neon pulsante
-            const buttonPulse = Math.sin(Date.now() * 0.005) * 3;
-            ctx.shadowBlur = 5 + buttonPulse;
-            ctx.font = '20px Orbitron';  // Diminuído a fonte do botão
-            drawNeonButton('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 40);
-        }
+        drawGameOver();
     }
 }
 
@@ -573,7 +583,6 @@ document.addEventListener('keydown', (event) => {
     
     // Se o input estiver focado, permitir digitação
     if (document.activeElement === input) {
-        // Permitir digitação normal no input
         return;
     }
     
@@ -585,7 +594,7 @@ document.addEventListener('keydown', (event) => {
     }
     
     // Atalho para adicionar pontos (apenas durante o jogo)
-    if (event.key.toLowerCase() === 'r' && gameStarted && !gameOver) {
+    if (event.key.toLowerCase() === 'y' && gameStarted && !gameOver) {
         score += 10;
         return;
     }
@@ -734,25 +743,80 @@ function cleanUndefinedScores() {
 // Chamar a limpeza ao iniciar o jogo
 cleanUndefinedScores();
 
-// Modificar a função saveHighScore
-function saveHighScore(score) {
-    // Não salvar se o nome for undefined
-    if (!playerName || playerName === 'undefined') {
-        return;
+// Funções para gerenciar ranking global
+async function saveGlobalScore(name, score) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('scores')
+            .insert([{ 
+                name: name, 
+                score: score
+            }]);
+        
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Erro ao salvar pontuação:', error);
     }
-
-    const date = new Date().toISOString();
-    highScores.push({ score, date, name: playerName });
-    
-    // Ordenar pontuações em ordem decrescente
-    highScores.sort((a, b) => b.score - a.score);
-    
-    // Manter apenas os top 3
-    highScores = highScores.slice(0, MAX_HIGH_SCORES);
-    
-    // Salvar no localStorage
-    localStorage.setItem('highScores', JSON.stringify(highScores));
 }
+
+async function getGlobalScores() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('scores')
+            .select('*')
+            .order('score', { ascending: false })
+            .limit(3);  // Limitando a 3 scores
+        
+        if (error) {
+            console.error('Erro ao buscar scores:', error);
+            throw error;
+        }
+        
+        console.log('Dados recebidos:', data); // Debug
+        return data || [];
+    } catch (error) {
+        console.error('Erro ao buscar pontuações:', error);
+        return [];
+    }
+}
+
+// Modificar a função saveHighScore para ser mais robusta
+async function saveHighScore(score) {
+    try {
+        if (!playerName || playerName === 'undefined') return;
+        
+        // Salvar globalmente primeiro
+        await saveGlobalScore(playerName, score);
+        
+        console.log('Score salvo com sucesso!');
+    } catch (error) {
+        console.error('Erro ao salvar pontuação:', error);
+    }
+}
+
+// Adicionar função para alternar entre ranking local e global
+let isShowingGlobalRanking = false;
+
+document.getElementById('toggleRanking').addEventListener('click', async () => {
+    isShowingGlobalRanking = !isShowingGlobalRanking;
+    const globalRanking = document.querySelector('.global-ranking');
+    
+    if (isShowingGlobalRanking) {
+        const scores = await getGlobalScores();
+        const rankingList = document.querySelector('.ranking-list');
+        rankingList.innerHTML = scores.map((score, index) => `
+            <div class="ranking-item">
+                ${drawFuturisticBadge(index + 1)}
+                ${score.name} - ${score.score} pts
+                (${formatDate(score.date)})
+            </div>
+        `).join('');
+        globalRanking.style.display = 'block';
+    } else {
+        globalRanking.style.display = 'none';
+    }
+});
 
 // Adicionar função para verificar clique no botão
 function isClickOnButton(x, y, buttonY) {
@@ -859,4 +923,35 @@ document.addEventListener('dblclick', (event) => {
 // Adicionar listener para ajustar o prompt quando a orientação mudar
 window.addEventListener('orientationchange', () => {
     adjustEditPromptForMobile();
-}); 
+});
+
+// Melhorar a função que mostra o ranking global
+async function showGlobalRanking() {
+    const globalRanking = document.querySelector('.global-ranking');
+    const rankingList = document.querySelector('.ranking-list');
+    
+    try {
+        // Mostrar loading
+        rankingList.innerHTML = '<div class="loading">Carregando ranking...</div>';
+        globalRanking.style.display = 'block';
+        
+        const scores = await getGlobalScores();
+        
+        if (scores.length === 0) {
+            rankingList.innerHTML = '<div class="no-scores">Nenhuma pontuação registrada ainda</div>';
+            return;
+        }
+
+        rankingList.innerHTML = scores.map((score, index) => `
+            <div class="ranking-item ${score.name === playerName ? 'current-player' : ''}">
+                <span class="position">${drawFuturisticBadge(index + 1)}</span>
+                <span class="player-name">${score.name}</span>
+                <span class="score">${score.score} pts</span>
+                <span class="date">${formatDate(score.date)}</span>
+            </div>
+        `).join('');
+    } catch (error) {
+        rankingList.innerHTML = '<div class="error">Erro ao carregar ranking</div>';
+        console.error('Erro ao mostrar ranking:', error);
+    }
+} 
