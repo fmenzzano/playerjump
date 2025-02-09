@@ -60,21 +60,23 @@
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
             width: 95vw;
             max-width: 800px;
-            height: 75vh;  /* Reduzido de 85vh para 75vh */
+            height: 85vh;  /* Voltar para 85vh */
             max-height: 400px;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1;
             margin: auto;
+            margin-bottom: 10vh;  /* Adicionar espaço apenas embaixo */
         }
 
         @media (max-width: 768px) {
             .game-container {
                 width: 98vw;
-                height: 70vh;  /* Reduzido de 80vh para 70vh */
+                height: 85vh;  /* Voltar para 85vh */
                 padding: 3px;
                 margin: auto;
+                margin-bottom: 15vh;  /* Mais espaço embaixo para mobile */
                 border-width: 1px;
             }
             
@@ -85,8 +87,9 @@
 
         @media (max-height: 500px) {
             .game-container {
-                height: 85vh;  /* Reduzido de 95vh para 85vh */
+                height: 95vh;  /* Manter altura máxima */
                 padding: 2px;
+                margin-bottom: 5vh;  /* Menos espaço para telas baixas */
             }
         }
 
