@@ -2,12 +2,12 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Configurações de velocidade
-const INITIAL_SPEED = 3;  // Velocidade inicial mais alta
-const SPEED_INCREASE = 0.001;  // Aumento gradual da velocidade
+const INITIAL_SPEED = 7;  // Reduzido de 10 para 7
+const SPEED_INCREASE = 0.002;  // Mantido o mesmo aumento gradual
 let currentSpeed = INITIAL_SPEED;
 
 // Configurações de tamanho
-const ELEMENT_SIZE = 42;  // Reduzido de 50 para 42 (redução de 15%)
+const ELEMENT_SIZE = 52;  // Aumentado de 42 para 52
 const OBSTACLE_GAP = ELEMENT_SIZE * 3;  // Será automaticamente ajustado para 126 pixels
 
 // Configurações do jogador
@@ -16,9 +16,9 @@ const player = {
     y: canvas.height/2,
     width: ELEMENT_SIZE,    
     height: ELEMENT_SIZE,   
-    gravity: 0.6,          
+    gravity: 0.6,          // Voltar para o valor original
     velocity: 0,
-    jumpForce: -8          // Reduzido de -12 para -8 para um pulo menor
+    jumpForce: -8          // Voltar para o valor anterior
 };
 
 // Configurações dos obstáculos
@@ -35,9 +35,9 @@ let showingRanking = false;
 
 // Carregar imagens
 const playerImg = new Image();
-playerImg.src = 'fernandosemfundo.png';
+playerImg.src = 'navesemfundo.png';  // Mantém a nave como player
 const starImg = new Image();
-starImg.src = 'marianasemfundo.png';
+starImg.src = 'bolafogosemfundo.png';  // Alterado de asteroidsemfundo.png para bolafogosemfundo.png
 
 // Adicionar no início do arquivo, após as variáveis existentes
 const MAX_HIGH_SCORES = 3;
@@ -129,6 +129,32 @@ function createObstacle() {
     obstacles.push(obstacle);
 }
 
+// Adicionar função para verificar colisão por pixel
+function checkPixelCollision(x1, y1, img1, x2, y2, img2) {
+    // Reduzir a área de colisão para ser mais precisa
+    const margin = 10;
+    const box1 = {
+        left: x1 + margin,
+        right: x1 + ELEMENT_SIZE - margin,
+        top: y1 + margin,
+        bottom: y1 + ELEMENT_SIZE - margin
+    };
+    
+    const box2 = {
+        left: x2 + margin,
+        right: x2 + ELEMENT_SIZE - margin,
+        top: y2 + margin,
+        bottom: y2 + ELEMENT_SIZE - margin
+    };
+
+    // Verificar sobreposição de retângulos
+    return !(box1.right < box2.left || 
+             box1.left > box2.right || 
+             box1.bottom < box2.top || 
+             box1.top > box2.bottom);
+}
+
+// Modificar a função update para usar a nova detecção de colisão
 function update() {
     if (!gameStarted || gameOver) return;
 
@@ -157,40 +183,23 @@ function update() {
     obstacles.forEach((obstacle, index) => {
         obstacle.x -= currentSpeed;
 
-        // Verificar colisão com mais precisão usando os círculos
-        const playerCenterX = player.x + ELEMENT_SIZE/2;
-        const playerCenterY = player.y + ELEMENT_SIZE/2;
-        const playerRadius = ELEMENT_SIZE/2;
-        
-        // Centro e raio da estrela superior
-        const topStarCenterX = obstacle.x + ELEMENT_SIZE/2;
-        const topStarCenterY = obstacle.y - ELEMENT_SIZE/2;
-        const starRadius = ELEMENT_SIZE/2;
-        
-        // Centro da estrela inferior
-        const bottomStarCenterX = obstacle.x + ELEMENT_SIZE/2;
-        const bottomStarCenterY = obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2;
+        // Verificar colisão com obstáculo superior
+        if (checkPixelCollision(
+            player.x, player.y, playerImg,
+            obstacle.x, obstacle.y - ELEMENT_SIZE, starImg
+        )) {
+            gameOver = true;
+            if (score > 0) saveHighScore(score);
+            return;
+        }
 
-        // Calcular distância exata entre os centros
-        const distanceTopStar = Math.sqrt(
-            Math.pow(playerCenterX - topStarCenterX, 2) + 
-            Math.pow(playerCenterY - topStarCenterY, 2)
-        );
-        
-        const distanceBottomStar = Math.sqrt(
-            Math.pow(playerCenterX - bottomStarCenterX, 2) + 
-            Math.pow(playerCenterY - bottomStarCenterY, 2)
-        );
-        
-        // Colisão ocorre quando a soma dos raios é maior que a distância entre os centros
-        const sumOfRadii = playerRadius + starRadius;
-        if (distanceTopStar <= sumOfRadii || distanceBottomStar <= sumOfRadii) {
-            if (!gameOver) {
-                gameOver = true;
-                if (score > 0) {
-                    saveHighScore(score);
-                }
-            }
+        // Verificar colisão com obstáculo inferior
+        if (checkPixelCollision(
+            player.x, player.y, playerImg,
+            obstacle.x, obstacle.y + OBSTACLE_GAP, starImg
+        )) {
+            gameOver = true;
+            if (score > 0) saveHighScore(score);
             return;
         }
 
@@ -387,8 +396,8 @@ async function fetchAndCacheScores() {
 }
 
 function drawGameOver() {
-    // Aplicar overlay cinza semi-transparente
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    // Aplicar overlay cinza semi-transparente mais suave
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // Reduzido de 0.5 para 0.3
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     if (!showingRanking) {
@@ -410,10 +419,10 @@ function drawGameOver() {
 }
 
 function drawRankingScreen() {
-    // Background
+    // Background mais suave
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
-    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.95)');
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');  // Reduzido de 0.95 para 0.8
+    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.8)');  // Reduzido de 0.95 para 0.8
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -506,58 +515,27 @@ function draw() {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Desenhar player com contorno circular
+    // Desenhar player (sem contorno)
     ctx.save();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(
-        player.x + ELEMENT_SIZE/2,
-        player.y + ELEMENT_SIZE/2,
-        ELEMENT_SIZE/2,
-        0,
-        Math.PI * 2
-    );
-    ctx.stroke();
     ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
     ctx.restore();
 
-    // Desenhar obstáculos com contorno circular
+    // Desenhar obstáculos (sem contorno)
     obstacles.forEach(obstacle => {
         ctx.save();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
         
-        // Contorno e imagem superior
-        ctx.beginPath();
-        ctx.arc(
-            obstacle.x + ELEMENT_SIZE/2,
-            obstacle.y - ELEMENT_SIZE/2,
-            ELEMENT_SIZE/2,
-            0,
-            Math.PI * 2
-        );
-        ctx.stroke();
+        // Imagem superior (sem contorno)
         ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
         
-        // Contorno e imagem inferior
-        ctx.beginPath();
-        ctx.arc(
-            obstacle.x + ELEMENT_SIZE/2,
-            obstacle.y + OBSTACLE_GAP + ELEMENT_SIZE/2,
-            ELEMENT_SIZE/2,
-            0,
-            Math.PI * 2
-        );
-        ctx.stroke();
+        // Imagem inferior (sem contorno)
         ctx.drawImage(starImg, obstacle.x, obstacle.y + OBSTACLE_GAP, ELEMENT_SIZE, ELEMENT_SIZE);
         
         ctx.restore();
     });
 
-    // Desenhar pontuação
+    // Desenhar pontuação com blur mais suave
     ctx.shadowColor = '#fff';
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = 2;  // Reduzido de 5 para 2
     ctx.fillStyle = '#fff';
     ctx.font = '24px Orbitron';
     ctx.textAlign = 'left';
@@ -794,29 +772,6 @@ async function saveHighScore(score) {
         console.error('Erro ao salvar pontuação:', error);
     }
 }
-
-// Adicionar função para alternar entre ranking local e global
-let isShowingGlobalRanking = false;
-
-document.getElementById('toggleRanking').addEventListener('click', async () => {
-    isShowingGlobalRanking = !isShowingGlobalRanking;
-    const globalRanking = document.querySelector('.global-ranking');
-    
-    if (isShowingGlobalRanking) {
-        const scores = await getGlobalScores();
-        const rankingList = document.querySelector('.ranking-list');
-        rankingList.innerHTML = scores.map((score, index) => `
-            <div class="ranking-item">
-                ${drawFuturisticBadge(index + 1)}
-                ${score.name} - ${score.score} pts
-                (${formatDate(score.date)})
-            </div>
-        `).join('');
-        globalRanking.style.display = 'block';
-    } else {
-        globalRanking.style.display = 'none';
-    }
-});
 
 // Adicionar função para verificar clique no botão
 function isClickOnButton(x, y, buttonY) {
