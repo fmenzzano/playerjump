@@ -2,13 +2,13 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Configurações de velocidade
-const INITIAL_SPEED = 7;  // Reduzido de 10 para 7
+const INITIAL_SPEED = 4;  // Reduzido de 5 para 4
 const SPEED_INCREASE = 0.002;  // Mantido o mesmo aumento gradual
 let currentSpeed = INITIAL_SPEED;
 
 // Configurações de tamanho
-const ELEMENT_SIZE = 52;  // Aumentado de 42 para 52
-const OBSTACLE_GAP = ELEMENT_SIZE * 3;  // Será automaticamente ajustado para 126 pixels
+const ELEMENT_SIZE = 62;  // Tamanho do elemento
+const MIN_GAP = ELEMENT_SIZE * 1.5;  // Espaçamento vertical mínimo (93 pixels)
 
 // Configurações do jogador
 const player = {
@@ -16,9 +16,9 @@ const player = {
     y: canvas.height/2,
     width: ELEMENT_SIZE,    
     height: ELEMENT_SIZE,   
-    gravity: 0.6,          // Voltar para o valor original
+    gravity: 0.6,          
     velocity: 0,
-    jumpForce: -8          // Voltar para o valor anterior
+    jumpForce: -6          // Reduzido de -8 para -6 para um pulo menor
 };
 
 // Configurações dos obstáculos
@@ -121,9 +121,17 @@ function jump() {
 }
 
 function createObstacle() {
+    // Calcular margens seguras considerando o tamanho do elemento e o gap
+    const minY = ELEMENT_SIZE;  // Margem superior para o obstáculo superior
+    const maxY = canvas.height - MIN_GAP - ELEMENT_SIZE;  // Margem inferior considerando gap mínimo
+    
+    // Adicionar aleatoriedade ao gap, mas manter no mínimo 1.5x o tamanho do elemento
+    const randomGap = MIN_GAP + (Math.random() * ELEMENT_SIZE);  // Variação de até 1 elemento a mais
+    
     const obstacle = {
         x: canvas.width,
-        y: Math.random() * (canvas.height - OBSTACLE_GAP - 100) + 50,
+        y: Math.random() * (maxY - minY) + minY,
+        gap: randomGap,  // Cada obstáculo terá seu próprio gap
         passed: false
     };
     obstacles.push(obstacle);
@@ -132,26 +140,30 @@ function createObstacle() {
 // Adicionar função para verificar colisão por pixel
 function checkPixelCollision(x1, y1, img1, x2, y2, img2) {
     // Reduzir a área de colisão para ser mais precisa
-    const margin = 10;
+    const margin = 15;  // Aumentado de 10 para 15
+    const sideMargin = 5;  // Margem menor para os lados
+    
     const box1 = {
-        left: x1 + margin,
-        right: x1 + ELEMENT_SIZE - margin,
+        left: x1 + sideMargin,
+        right: x1 + ELEMENT_SIZE - sideMargin,
         top: y1 + margin,
         bottom: y1 + ELEMENT_SIZE - margin
     };
     
     const box2 = {
-        left: x2 + margin,
-        right: x2 + ELEMENT_SIZE - margin,
+        left: x2 + sideMargin,
+        right: x2 + ELEMENT_SIZE - sideMargin,
         top: y2 + margin,
         bottom: y2 + ELEMENT_SIZE - margin
     };
 
-    // Verificar sobreposição de retângulos
-    return !(box1.right < box2.left || 
-             box1.left > box2.right || 
-             box1.bottom < box2.top || 
-             box1.top > box2.bottom);
+    // Verificar sobreposição de retângulos com prioridade para colisão lateral
+    const isVerticalOverlap = box1.bottom > box2.top && box1.top < box2.bottom;
+    const isHorizontalOverlap = box1.right > box2.left && box1.left < box2.right;
+    
+    // Só considerar colisão se houver sobreposição significativa
+    return isVerticalOverlap && isHorizontalOverlap && 
+           (box1.right - box2.left > ELEMENT_SIZE * 0.2);  // 20% de sobreposição mínima
 }
 
 // Modificar a função update para usar a nova detecção de colisão
@@ -166,17 +178,16 @@ function update() {
     player.y += player.velocity;
 
     // Verificar colisão com o chão e teto
-    if (player.y > canvas.height - player.height) {
-        player.y = canvas.height - player.height;
-        player.velocity = player.jumpForce * 0.6; // Quicar com 60% da força do pulo
-    }
-    if (player.y < 0) {
-        player.y = 0;
-        player.velocity = 0;
+    if (player.y > canvas.height - player.height || player.y < 0) {
+        gameOver = true;
+        if (score > 0) {
+            saveHighScore(score);
+        }
+        return;
     }
 
     // Atualizar obstáculos
-    if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 200) {
+    if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - (ELEMENT_SIZE * 3)) {
         createObstacle();
     }
 
@@ -196,16 +207,16 @@ function update() {
         // Verificar colisão com obstáculo inferior
         if (checkPixelCollision(
             player.x, player.y, playerImg,
-            obstacle.x, obstacle.y + OBSTACLE_GAP, starImg
+            obstacle.x, obstacle.y + obstacle.gap, starImg
         )) {
             gameOver = true;
             if (score > 0) saveHighScore(score);
             return;
         }
 
-        // Aumentar pontuação quando passar pelo par de estrelas
+        // Aumentar pontuação quando passar pelo obstáculo
         if (!obstacle.passed && obstacle.x + ELEMENT_SIZE < player.x) {
-            score++;  // Incrementa a pontuação ao passar pelo obstáculo
+            score++;
             obstacle.passed = true;
         }
 
@@ -520,15 +531,15 @@ function draw() {
     ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
     ctx.restore();
 
-    // Desenhar obstáculos (sem contorno)
+    // Desenhar obstáculos
     obstacles.forEach(obstacle => {
         ctx.save();
         
-        // Imagem superior (sem contorno)
+        // Imagem superior
         ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
         
-        // Imagem inferior (sem contorno)
-        ctx.drawImage(starImg, obstacle.x, obstacle.y + OBSTACLE_GAP, ELEMENT_SIZE, ELEMENT_SIZE);
+        // Imagem inferior (usando o gap específico do obstáculo)
+        ctx.drawImage(starImg, obstacle.x, obstacle.y + obstacle.gap, ELEMENT_SIZE, ELEMENT_SIZE);
         
         ctx.restore();
     });
