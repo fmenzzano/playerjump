@@ -58,9 +58,9 @@
             border-radius: 15px;
             border: 1px solid #fff;
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
-            width: 95vw;  /* 95% da largura da viewport */
+            width: 95vw;
             max-width: 800px;
-            height: 85vh;  /* 85% da altura da viewport */
+            height: 75vh;  /* Reduzido de 85vh para 75vh */
             max-height: 400px;
             display: flex;
             align-items: center;
@@ -72,7 +72,7 @@
         @media (max-width: 768px) {
             .game-container {
                 width: 98vw;
-                height: 80vh;  /* Reduzido para dar espaço ao browser */
+                height: 70vh;  /* Reduzido de 80vh para 70vh */
                 padding: 3px;
                 margin: auto;
                 border-width: 1px;
@@ -85,7 +85,7 @@
 
         @media (max-height: 500px) {
             .game-container {
-                height: 95vh;
+                height: 85vh;  /* Reduzido de 95vh para 85vh */
                 padding: 2px;
             }
         }
