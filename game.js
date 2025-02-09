@@ -48,18 +48,23 @@ let canvasScale = 1;
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
-    const containerWidth = container.clientWidth - 40; // 40 é o padding total
+    const containerWidth = container.clientWidth - 40;
+    const containerHeight = window.innerHeight - 40;
     
-    canvasScale = containerWidth / canvas.width;
-    
-    if (canvasScale > 1) canvasScale = 1; // Não aumentar além do tamanho original
+    // Calcular escala mantendo proporção
+    const scaleWidth = containerWidth / canvas.width;
+    const scaleHeight = containerHeight / canvas.height;
+    canvasScale = Math.min(scaleWidth, scaleHeight, 1);
     
     canvas.style.width = (canvas.width * canvasScale) + 'px';
     canvas.style.height = (canvas.height * canvasScale) + 'px';
+    
+    // Ajustar posição vertical do canvas
+    canvas.style.marginTop = ((containerHeight - (canvas.height * canvasScale)) / 2) + 'px';
 
-    // Mostrar mensagem de rotação em dispositivos móveis no modo retrato
+    // Mostrar mensagem de rotação apenas em dispositivos muito estreitos
     const rotateMessage = document.querySelector('.rotate-message');
-    if (window.innerHeight > window.innerWidth && window.innerWidth < 768) {
+    if (window.innerWidth < 500 && window.innerHeight > window.innerWidth) {
         rotateMessage.style.display = 'flex';
     } else {
         rotateMessage.style.display = 'none';
@@ -488,6 +493,19 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('touchstart', (event) => {
     event.preventDefault();
+    
+    if (gameOver) {
+        // Reiniciar jogo ao tocar na tela quando estiver em game over
+        gameOver = false;
+        score = 0;
+        distance = 0;
+        currentSpeed = INITIAL_SPEED;
+        obstacles.length = 0;
+        player.y = canvas.height/2;
+        player.velocity = 0;
+        return;
+    }
+    
     if (!isEditingName) {
         jump();
     }
@@ -613,4 +631,16 @@ canvas.addEventListener('click', (event) => {
 
 // Adicionar event listener para redimensionamento
 window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', resizeCanvas); 
+window.addEventListener('orientationchange', resizeCanvas);
+
+// Adicionar prevenção de zoom em dispositivos móveis
+document.addEventListener('touchmove', (event) => {
+    if (event.touches.length > 1) {
+        event.preventDefault();
+    }
+}, { passive: false });
+
+// Desabilitar duplo toque para zoom
+document.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+}); 
