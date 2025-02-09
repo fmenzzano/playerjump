@@ -45,22 +45,27 @@ let lastCursorBlink = 0;
 // Adicionar no início do arquivo, após as variáveis existentes
 let canvasScale = 1;
 
+// Adicionar no início do arquivo após as variáveis existentes
+let hasShownNamePrompt = false;
+
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
-    const containerWidth = container.clientWidth - 40;
-    const containerHeight = window.innerHeight - 40;
+    const containerWidth = container.clientWidth - 20; // Reduzido padding total
+    const containerHeight = container.clientHeight - 20;
     
-    // Calcular escala mantendo proporção
-    const scaleWidth = containerWidth / canvas.width;
-    const scaleHeight = containerHeight / canvas.height;
-    canvasScale = Math.min(scaleWidth, scaleHeight, 1);
+    // Calcular escala mantendo proporção 2:1
+    const targetWidth = containerWidth;
+    const targetHeight = containerWidth / 2;
+    
+    if (targetHeight > containerHeight) {
+        canvasScale = containerHeight / canvas.height;
+    } else {
+        canvasScale = containerWidth / canvas.width;
+    }
     
     canvas.style.width = (canvas.width * canvasScale) + 'px';
     canvas.style.height = (canvas.height * canvasScale) + 'px';
-    
-    // Ajustar posição vertical do canvas
-    canvas.style.marginTop = ((containerHeight - (canvas.height * canvasScale)) / 2) + 'px';
 
     // Mostrar mensagem de rotação apenas em dispositivos muito estreitos
     const rotateMessage = document.querySelector('.rotate-message');
@@ -222,6 +227,11 @@ function drawStartScreen() {
     // Texto de instrução - ajustado e com mais espaço (movido para baixo)
     ctx.fillStyle = '#fff';
     ctx.fillText('Desvie da Mariana!', canvas.width/2, canvas.height/2 + 130);
+
+    // Mostrar prompt de edição de nome se ainda não foi mostrado
+    if (!hasShownNamePrompt && !isEditingName) {
+        showEditNamePrompt();
+    }
 }
 
 // Função para desenhar botão neon
@@ -643,4 +653,18 @@ document.addEventListener('touchmove', (event) => {
 // Desabilitar duplo toque para zoom
 document.addEventListener('dblclick', (event) => {
     event.preventDefault();
-}); 
+});
+
+// Função para mostrar prompt de edição de nome
+function showEditNamePrompt() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    prompt.style.display = 'block';
+}
+
+// Função para lidar com o clique no botão do prompt
+function handleEditNamePrompt() {
+    const prompt = document.querySelector('.edit-name-prompt');
+    prompt.style.display = 'none';
+    startEditingName();
+    hasShownNamePrompt = true;
+} 

@@ -24,6 +24,7 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
             max-width: 100%;
             height: auto;
+            touch-action: none;
         }
         
         body {
@@ -36,7 +37,7 @@
             font-family: 'Orbitron', sans-serif;
             overflow: hidden;
             position: relative;
-            padding: 20px;
+            padding: 10px;
         }
         
         body::before {
@@ -51,13 +52,17 @@
         
         .game-container {
             position: relative;
-            padding: 20px;
+            padding: 10px;
             background: rgba(0, 0, 0, 0.8);
             border-radius: 15px;
             border: 1px solid #fff;
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
             width: 100%;
             max-width: 800px;
+            aspect-ratio: 2/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @media (max-width: 768px) {
@@ -87,6 +92,51 @@
                 padding: 20px;
             }
         }
+
+        /* Mensagem inicial para editar nome */
+        .edit-name-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #fff;
+            text-align: center;
+            color: #fff;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            display: none;
+        }
+
+        .edit-name-prompt h2 {
+            margin-bottom: 15px;
+            font-size: 24px;
+            text-shadow: 0 0 10px #fff;
+        }
+
+        .edit-name-prompt p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .edit-name-prompt button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .edit-name-prompt button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -98,6 +148,11 @@
             <h2>🔄 Gire seu dispositivo</h2>
             <p>Para uma melhor experiência, use o modo paisagem</p>
         </div>
+    </div>
+    <div class="edit-name-prompt">
+        <h2>⚡ Bem-vindo ao Player Jump! ⚡</h2>
+        <p>Antes de começar, que tal personalizar seu nome?</p>
+        <button onclick="handleEditNamePrompt()">EDITAR NOME</button>
     </div>
     <script src="game.js"></script>
 </body>
