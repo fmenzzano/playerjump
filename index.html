@@ -56,27 +56,25 @@
             padding: 5px;
             background: rgba(0, 0, 0, 0.8);
             border-radius: 15px;
-            border: 1px solid #ffffff80;  // Borda mais suave
+            border: 1px solid #ffffff80;
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
             width: 95vw;
             max-width: 800px;
-            height: 85vh;  /* Voltar para 85vh */
+            height: 85vh;
             max-height: 400px;
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1;
             margin: auto;
-            margin-bottom: 60vh;  /* Dobrado: de 30vh para 60vh */
         }
 
         @media (max-width: 768px) {
             .game-container {
                 width: 98vw;
-                height: 85vh;  /* Voltar para 85vh */
+                height: 85vh;
                 padding: 3px;
                 margin: auto;
-                margin-bottom: 70vh;  /* Dobrado: de 35vh para 70vh */
                 border-width: 1px;
             }
             
@@ -89,7 +87,7 @@
             .game-container {
                 height: 95vh;
                 padding: 2px;
-                margin-bottom: 50vh;  /* Dobrado: de 25vh para 50vh */
+                margin: auto;
             }
         }
 
@@ -334,6 +332,111 @@
             background: rgba(255, 255, 255, 0.2);
             box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
         }
+
+        .donation-button {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            z-index: 1000;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 25px;
+        }
+
+        .donation-button button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 6px 12px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 2px;
+        }
+
+        .donation-button button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .donation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1001;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .donation-content {
+            background: #1a1a1a;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 400px;
+            position: relative;
+        }
+
+        .close-donation {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .pix-key {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-size: 16px;
+            user-select: all;
+            cursor: pointer;
+        }
+
+        small {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+        }
+
+        .copy-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 8px 20px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 auto 15px;
+        }
+
+        .copy-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .copy-button:active {
+            transform: scale(0.95);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
     <script>
@@ -344,6 +447,12 @@
 <body>
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="donation-button" class="donation-button">
+            <button onclick="showDonationQR()">
+                <span>❤️</span>
+                <span class="donation-text">Apoiar</span>
+            </button>
+        </div>
     </div>
     <div class="rotate-message" style="display: none;">
         <div>
@@ -374,6 +483,35 @@
     <button id="toggleRanking" class="ranking-toggle" style="display: none;">
         Alternar Ranking
     </button>
+
+    <div id="donation-modal" class="donation-modal">
+        <div class="donation-content">
+            <span class="close-donation">&times;</span>
+            <h2>Apoie o Desenvolvimento</h2>
+            <p>Se você está curtindo o jogo, considere fazer uma doação 😊</p>
+            <p class="pix-key">Chave PIX: fmenzzano@gmail.com</p>
+            <button onclick="copyPixKey()" class="copy-button">
+                <span>📋</span> Copiar Chave PIX
+            </button>
+            <small>Qualquer valor é bem-vindo!</small>
+        </div>
+    </div>
     <script src="game.js"></script>
+    <script>
+    function copyPixKey() {
+        const pixKey = 'fmenzzano@gmail.com';
+        navigator.clipboard.writeText(pixKey).then(() => {
+            const button = document.querySelector('.copy-button');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<span>✅</span> Copiado!';
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Erro ao copiar:', err);
+        });
+    }
+    </script>
 </body>
 </html> 

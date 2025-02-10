@@ -286,6 +286,8 @@ function drawStartScreen() {
     if (!hasShownNamePrompt && !isEditingName) {
         showEditNamePrompt();
     }
+
+    document.getElementById('donation-button').style.display = 'none';
 }
 
 // Função para desenhar botão neon
@@ -410,11 +412,11 @@ async function fetchAndCacheScores() {
 }
 
 function drawGameOver() {
-    // Aplicar overlay cinza semi-transparente mais suave
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // Reduzido de 0.5 para 0.3
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     if (!showingRanking) {
+        // Aplicar overlay semi-transparente sobre o jogo atual
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // Reduzido de 0.5 para 0.3
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
         // Mostrar mensagem "SE FODEU"
         drawWastedText('SE FODEU', canvas.width/2, canvas.height/2, 70);
         
@@ -427,7 +429,7 @@ function drawGameOver() {
         // Pré-carregar scores para a próxima tela
         fetchAndCacheScores();
     } else {
-        // Mostrar ranking global
+        // Mostrar ranking global sem overlay
         drawRankingScreen();
     }
 }
@@ -453,10 +455,10 @@ async function getPlayerRanking(playerName, currentScore) {
 }
 
 function drawRankingScreen() {
-    // Background
+    // Background mais escuro
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
-    gradient.addColorStop(1, 'rgba(26, 26, 26, 0.8)');
+    gradient.addColorStop(0, '#000000');  // Mudado de rgba para #000000
+    gradient.addColorStop(1, '#1a1a1a');  // Mantido o degradê sutil
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -552,6 +554,10 @@ function drawRankingScreen() {
     ctx.fillStyle = '#fff';
     ctx.font = '18px Orbitron';  // Definir fonte antes de desenhar
     ctx.fillText('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 20);
+
+    // Mostrar botão de doação
+    const donationButton = document.getElementById('donation-button');
+    donationButton.style.display = 'block';
 }
 
 function draw() {
@@ -613,6 +619,10 @@ function draw() {
     // Verificar game over por último
     if (gameOver) {
         drawGameOver();
+    }
+
+    if (!showingRanking) {
+        document.getElementById('donation-button').style.display = 'none';
     }
 }
 
@@ -1007,4 +1017,28 @@ function updateRankingIfNeeded() {
         fetchAndCacheScores();
         lastRankingUpdate = now;
     }
-} 
+}
+
+// Adicionar as funções de doação
+function showDonationQR() {
+    const modal = document.getElementById('donation-modal');
+    modal.style.display = 'flex';
+}
+
+// Adicionar event listeners para o modal de doação
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('donation-modal');
+    const closeBtn = document.querySelector('.close-donation');
+
+    // Fechar ao clicar no X
+    closeBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+
+    // Fechar ao clicar fora do modal
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+}); 
