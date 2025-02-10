@@ -639,12 +639,6 @@ document.addEventListener('keydown', (event) => {
         event.preventDefault();
         return;
     }
-    
-    // Atalho para adicionar pontos (apenas durante o jogo)
-    if (event.key.toLowerCase() === 'y' && gameStarted && !gameOver) {
-        score += 10;
-        return;
-    }
 
     // Tecla espaço só funciona se o prompt não estiver visível
     if (event.code === 'Space') {
@@ -677,29 +671,65 @@ document.getElementById('nameInput').addEventListener('keypress', (event) => {
     }
 });
 
+// Otimizar o event listener de touch para Android
 document.addEventListener('touchstart', (event) => {
-    event.preventDefault();
-    
-    if (gameOver) {
-        if (!showingRanking) {
-            showingRanking = true;
-        } else {
-            gameOver = false;
-            showingRanking = false;
-            score = 0;
-            distance = 0;
-            currentSpeed = INITIAL_SPEED;
-            obstacles.length = 0;
-            player.y = canvas.height/2;
-            player.velocity = 0;
+    // Prevenir comportamentos padrão apenas se necessário
+    if (event.target === canvas) {
+        event.preventDefault();
+        
+        // Verificar se não está editando nome
+        if (isEditingName) return;
+        
+        // Verificar se está no game over
+        if (gameOver) {
+            if (!showingRanking) {
+                showingRanking = true;
+            } else {
+                resetGame();  // Função auxiliar para resetar o jogo
+            }
+            return;
         }
-        return;
-    }
-    
-    if (!isEditingName) {
+        
+        // Executar pulo
         jump();
     }
-});
+}, { passive: true });  // Usar passive: true quando possível
+
+// Função auxiliar para resetar o jogo
+function resetGame() {
+    gameOver = false;
+    showingRanking = false;
+    score = 0;
+    currentSpeed = INITIAL_SPEED;
+    obstacles.length = 0;
+    player.y = canvas.height/2;
+    player.velocity = 0;
+}
+
+// Otimizar a prevenção de scroll
+document.body.addEventListener('touchmove', (event) => {
+    if (gameStarted && !gameOver && event.target === canvas) {
+        event.preventDefault();
+    }
+}, { passive: false });
+
+// Otimizar a detecção de toque no botão
+function handleTouchStart(event) {
+    if (!gameStarted && !gameOver && !isEditingName) {
+        const touch = event.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const x = (touch.clientX - rect.left) / canvasScale;
+        const y = (touch.clientY - rect.top) / canvasScale;
+        
+        if (isClickOnButton(x, y, canvas.height/2 + 30)) {
+            event.preventDefault();
+            showEditNamePrompt();
+        }
+    }
+}
+
+// Adicionar o novo event listener
+canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
 
 // Modificar a função showEditNamePrompt
 function showEditNamePrompt() {
@@ -716,12 +746,15 @@ function showEditNamePrompt() {
         return;
     }
     
-    input.value = playerName;
+    // Resetar estados
+    isEditingName = true;
+    input.value = playerName === 'Desconhecido' ? '' : playerName;
     prompt.style.display = 'block';
     
-    // Focar no input após um pequeno delay
+    // Focar no input após um pequeno delay e selecionar todo o texto
     setTimeout(() => {
         input.focus();
+        input.select();
     }, 100);
 }
 
@@ -740,6 +773,7 @@ function handleNameInput() {
     prompt.style.display = 'none';
     gameContainer.classList.remove('blur');
     hasShownNamePrompt = true;
+    isEditingName = false;  // Resetar estado de edição
     
     // Reiniciar o estado do jogo
     gameStarted = false;
@@ -758,6 +792,7 @@ function skipNameEdit() {
     prompt.style.display = 'none';
     gameContainer.classList.remove('blur');
     hasShownNamePrompt = true;
+    isEditingName = false;  // Resetar estado de edição
     
     // Reiniciar o estado do jogo
     gameStarted = false;
@@ -910,19 +945,6 @@ function drawNameEditor() {
     ctx.fillText('Pressione ENTER para salvar ou ESC para cancelar', canvas.width/2, canvas.height/2 + 50);
 }
 
-// Modificar o event listener de clique
-canvas.addEventListener('click', (event) => {
-    if (!gameStarted && !gameOver && !isEditingName) {
-        const rect = canvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) / canvasScale;
-        const y = (event.clientY - rect.top) / canvasScale;
-        
-        if (isClickOnButton(x, y, canvas.height/2 + 30)) {
-            showEditNamePrompt();
-        }
-    }
-});
-
 // Adicionar event listener para redimensionamento
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', resizeCanvas);
@@ -972,5 +994,17 @@ async function showGlobalRanking() {
     } catch (error) {
         rankingList.innerHTML = '<div class="error">Erro ao carregar ranking</div>';
         console.error('Erro ao mostrar ranking:', error);
+    }
+}
+
+// Otimizar o cache do ranking
+let lastRankingUpdate = 0;
+const RANKING_UPDATE_INTERVAL = 2000;  // Atualizar a cada 2 segundos
+
+function updateRankingIfNeeded() {
+    const now = Date.now();
+    if (now - lastRankingUpdate > RANKING_UPDATE_INTERVAL) {
+        fetchAndCacheScores();
+        lastRankingUpdate = now;
     }
 } 
