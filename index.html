@@ -400,10 +400,10 @@
 
         .pix-key {
             background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
+            padding: 12px;
             border-radius: 5px;
-            margin: 20px 0;
-            font-size: 16px;
+            margin: 15px 0;
+            font-size: 14px;
             user-select: all;
             cursor: pointer;
         }
@@ -436,6 +436,53 @@
 
         .copy-button:active {
             transform: scale(0.95);
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .features-list li {
+            margin: 6px 0;
+            padding: 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .donation-content h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .donation-content p {
+            font-size: 14px;
+            margin: 10px 0;
+            line-height: 1.4;
+        }
+
+        .barriga-img {
+            margin: -25px -25px 15px -25px;
+            border-radius: 15px 15px 0 0;
+            overflow: hidden;
+            background: #000;
+            height: 180px;  /* Aumentado de 160px para 180px para mostrar mais da imagem */
+        }
+
+        .barriga-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 25%;  /* Ajustado para mostrar mais da parte inferior */
+            display: block;
+            transform: scale(1);  /* Voltado para tamanho original */
+            transform-origin: center;
+        }
+
+        .donation-content {
+            padding-top: 0;  /* Removido padding do topo pois a imagem já dá o espaçamento */
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
@@ -487,13 +534,20 @@
     <div id="donation-modal" class="donation-modal">
         <div class="donation-content">
             <span class="close-donation">&times;</span>
-            <h2>Apoie o Desenvolvimento</h2>
-            <p>Se você está curtindo o jogo, considere fazer uma doação 😊</p>
+            <div class="barriga-img">
+                <img src="seu-barriga.jpg" alt="Seu Barriga cobrando" class="barriga-photo">
+            </div>
+            <h2>☕ Ta achando que é de graça?</h2>
+            <p>Faz um pix pro seu pai comprar o café usado no desenvolvimento!</p>
+            <ul class="features-list">
+                <li>☕ Café básico: R$5</li>
+                <li>⚡ Café duplo: R$10</li>
+                <li>🔥 Café turbo: R$15</li>
+            </ul>
             <p class="pix-key">Chave PIX: fmenzzano@gmail.com</p>
             <button onclick="copyPixKey()" class="copy-button">
                 <span>📋</span> Copiar Chave PIX
             </button>
-            <small>Qualquer valor é bem-vindo!</small>
         </div>
     </div>
     <script src="game.js"></script>
