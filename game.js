@@ -1,24 +1,27 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Configurações de velocidade
-const INITIAL_SPEED = 4;  // Reduzido de 5 para 4
-const SPEED_INCREASE = 0.002;  // Mantido o mesmo aumento gradual
+// Adicionar no início do arquivo, após as outras constantes
+const isAndroid = /Android/i.test(navigator.userAgent);
+
+// Configurações de velocidade ajustadas por dispositivo
+const INITIAL_SPEED = 4;
+const SPEED_INCREASE = isAndroid ? 0.001 : 0.002;  // Metade da aceleração para Android
 let currentSpeed = INITIAL_SPEED;
 
 // Configurações de tamanho
 const ELEMENT_SIZE = 62;  // Tamanho do elemento
 const MIN_GAP = ELEMENT_SIZE * 1.5;  // Espaçamento vertical mínimo (93 pixels)
 
-// Configurações do jogador
+// Configurações do jogador ajustadas por dispositivo
 const player = {
     x: 150,
     y: canvas.height/2,
     width: ELEMENT_SIZE,    
     height: ELEMENT_SIZE,   
-    gravity: 0.6,          
+    gravity: isAndroid ? 0.4 : 0.6,  // Gravidade reduzida para Android
     velocity: 0,
-    jumpForce: -6          // Reduzido de -8 para -6 para um pulo menor
+    jumpForce: isAndroid ? -5 : -6   // Força do pulo ajustada para Android
 };
 
 // Configurações dos obstáculos
@@ -65,6 +68,20 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Variável global para armazenar a posição
 let playerPosition = '?';
+
+// Adicionar variável para armazenar o total de jogadores
+let totalUniquePlayers = 0;
+
+// Adicionar variável para armazenar o total de tentativas
+let totalAttempts = 0;
+
+// Adicionar variável para controlar o tempo entre atualizações
+let lastUpdateTime = 0;
+const UPDATE_INTERVAL = 2000; // 2 segundos entre atualizações
+
+// Adicionar variáveis de controle de retry
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 segundo
 
 // Função para redimensionar o canvas
 function resizeCanvas() {
@@ -402,19 +419,50 @@ let cachedScores = null;  // Cache para os scores
 
 async function fetchAndCacheScores() {
     try {
-        const scores = await getGlobalScores();
-        cachedScores = scores;
-        return scores;
+        console.log('Buscando scores...');
+        
+        // Buscar todas as informações em uma única query
+        const { data: scores, count: totalCount } = await supabaseClient
+            .from('scores')
+            .select('*', { count: 'exact' })
+            .order('score', { ascending: false });
+
+        if (!scores) throw new Error('Erro ao buscar scores');
+
+        // Contar jogadores únicos diretamente dos scores
+        const uniqueNames = new Set(scores.map(score => score.name).filter(Boolean));
+        
+        // Atualizar contadores
+        totalAttempts = totalCount || 0;
+        totalUniquePlayers = uniqueNames.size;
+
+        // Filtrar maiores pontuações
+        const highestScores = scores.reduce((acc, current) => {
+            if (!acc[current.name] || current.score > acc[current.name].score) {
+                acc[current.name] = current;
+            }
+            return acc;
+        }, {});
+
+        const uniqueScores = Object.values(highestScores)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
+
+        // Atualizar cache
+        cachedScores = uniqueScores;
+        lastUpdateTime = Date.now();
+        
+        return uniqueScores;
     } catch (error) {
-        console.error('Erro ao buscar scores:', error);
-        return [];
+        console.error('Erro ao buscar pontuações:', error);
+        return cachedScores || [];
     }
 }
 
 function drawGameOver() {
     if (!showingRanking) {
-        // Aplicar overlay semi-transparente sobre o jogo atual
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // Reduzido de 0.5 para 0.3
+        // Aplicar overlay semi-transparente
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         // Mostrar mensagem "SE FODEU"
@@ -426,10 +474,11 @@ function drawGameOver() {
         ctx.textAlign = 'center';
         ctx.fillText('Pressione ESPAÇO para ver o ranking', canvas.width/2, canvas.height/2 + 60);
         
-        // Pré-carregar scores para a próxima tela
-        fetchAndCacheScores();
+        // Salvar pontuação se for maior que 0
+        if (score > 0) {
+            saveHighScore(score);
+        }
     } else {
-        // Mostrar ranking global sem overlay
         drawRankingScreen();
     }
 }
@@ -457,19 +506,21 @@ async function getPlayerRanking(playerName, currentScore) {
 function drawRankingScreen() {
     // Background mais escuro
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, '#000000');  // Mudado de rgba para #000000
-    gradient.addColorStop(1, '#1a1a1a');  // Mantido o degradê sutil
+    gradient.addColorStop(0, '#000000');
+    gradient.addColorStop(1, '#1a1a1a');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Título ainda mais para cima
+    // Título centralizado
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 32px Orbitron';
     ctx.textAlign = 'center';
     ctx.fillText('RANKING GLOBAL', canvas.width/2, 40);
     
     // Sua pontuação e posição
+    ctx.textAlign = 'center';
     ctx.font = '24px Orbitron';
+    ctx.fillStyle = '#fff';
     ctx.fillText(`Sua Posição: ${playerPosition}   |   Sua Pontuação: ${score} pts`, canvas.width/2, 70);
     
     // Atualizar a posição do jogador em background
@@ -550,9 +601,9 @@ function drawRankingScreen() {
     }
 
     // Instrução para reiniciar mais abaixo e centralizada
-    ctx.textAlign = 'center';  // Garantir alinhamento central
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
-    ctx.font = '18px Orbitron';  // Definir fonte antes de desenhar
+    ctx.font = '18px Orbitron';
     ctx.fillText('PRESSIONE ESPAÇO PARA REINICIAR', canvas.width/2, canvas.height - 20);
 
     // Mostrar botão de doação
@@ -638,37 +689,34 @@ document.addEventListener('keydown', (event) => {
     const prompt = document.querySelector('.edit-name-prompt');
     const input = document.getElementById('nameInput');
     
-    // Se o input estiver focado, permitir digitação
-    if (document.activeElement === input) {
-        return;
-    }
-    
-    // Se o prompt estiver visível mas o input não estiver focado, 
-    // prevenir teclas de afetar o jogo
+    if (document.activeElement === input) return;
     if (prompt.style.display === 'block') {
         event.preventDefault();
         return;
     }
 
-    // Tecla espaço só funciona se o prompt não estiver visível
     if (event.code === 'Space') {
+        event.preventDefault();
+        
+        if (!gameStarted && !gameOver) {
+            gameStarted = true;
+            return;
+        }
+
         if (gameOver) {
             if (!showingRanking) {
-                // Primeiro espaço após game over mostra o ranking
                 showingRanking = true;
+                // Buscar scores após salvar a pontuação
+                setTimeout(() => {
+                    fetchAndCacheScores();
+                }, 500);
             } else {
-                // Segundo espaço reinicia o jogo
-                gameOver = false;
-                showingRanking = false;
-                score = 0;
-                distance = 0;
-                currentSpeed = INITIAL_SPEED;
-                obstacles.length = 0;
-                player.y = canvas.height/2;
-                player.velocity = 0;
+                resetGame();
             }
+            return;
         }
-        if (!prompt.style.display || prompt.style.display === 'none') {
+
+        if (gameStarted && !gameOver) {
             jump();
         }
     }
@@ -710,6 +758,7 @@ function resetGame() {
     gameOver = false;
     showingRanking = false;
     score = 0;
+    distance = 0;
     currentSpeed = INITIAL_SPEED;
     obstacles.length = 0;
     player.y = canvas.height/2;
@@ -852,36 +901,6 @@ async function saveGlobalScore(name, score) {
     }
 }
 
-async function getGlobalScores() {
-    try {
-        const { data, error } = await supabaseClient
-            .from('scores')
-            .select('*')
-            .order('score', { ascending: false })
-            .limit(10);  // Alterado de 3 para 10
-        
-        if (error) throw error;
-        return data || [];
-    } catch (error) {
-        console.error('Erro ao buscar pontuações:', error);
-        return [];
-    }
-}
-
-// Modificar a função saveHighScore para ser mais robusta
-async function saveHighScore(score) {
-    try {
-        if (!playerName || playerName === 'undefined') return;
-        
-        // Salvar globalmente primeiro
-        await saveGlobalScore(playerName, score);
-        
-        console.log('Score salvo com sucesso!');
-    } catch (error) {
-        console.error('Erro ao salvar pontuação:', error);
-    }
-}
-
 // Adicionar função para verificar clique no botão
 function isClickOnButton(x, y, buttonY) {
     const metrics = ctx.measureText('EDITAR NOME');
@@ -986,7 +1005,7 @@ async function showGlobalRanking() {
         rankingList.innerHTML = '<div class="loading">Carregando ranking...</div>';
         globalRanking.style.display = 'block';
         
-        const scores = await getGlobalScores();
+        const scores = await fetchAndCacheScores();
         
         if (scores.length === 0) {
             rankingList.innerHTML = '<div class="no-scores">Nenhuma pontuação registrada ainda</div>';
@@ -1041,4 +1060,29 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.style.display = 'none';
         }
     };
-}); 
+});
+
+// Adicionar função para salvar pontuação
+async function saveHighScore(score) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('scores')
+            .insert([
+                {
+                    name: playerName,
+                    score: score
+                }
+            ]);
+
+        if (error) throw error;
+
+        // Atualizar posição do jogador
+        getPlayerRanking(playerName, score).then(pos => {
+            playerPosition = pos;
+        });
+
+        return data;
+    } catch (error) {
+        console.error('Erro ao salvar pontuação:', error);
+    }
+} 
