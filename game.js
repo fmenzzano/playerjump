@@ -421,22 +421,16 @@ async function fetchAndCacheScores() {
     try {
         console.log('Buscando scores...');
         
-        // Buscar todas as informações em uma única query
-        const { data: scores, count: totalCount } = await supabaseClient
+        // Buscar todos os scores
+        const { data: scores, error } = await supabaseClient
             .from('scores')
-            .select('*', { count: 'exact' })
+            .select('*')
             .order('score', { ascending: false });
 
-        if (!scores) throw new Error('Erro ao buscar scores');
+        if (error) throw error;
+        if (!scores) return cachedScores || [];
 
-        // Contar jogadores únicos diretamente dos scores
-        const uniqueNames = new Set(scores.map(score => score.name).filter(Boolean));
-        
-        // Atualizar contadores
-        totalAttempts = totalCount || 0;
-        totalUniquePlayers = uniqueNames.size;
-
-        // Filtrar maiores pontuações
+        // Filtrar maiores pontuações por jogador
         const highestScores = scores.reduce((acc, current) => {
             if (!acc[current.name] || current.score > acc[current.name].score) {
                 acc[current.name] = current;
@@ -444,17 +438,21 @@ async function fetchAndCacheScores() {
             return acc;
         }, {});
 
+        // Ordenar e pegar top 10
         const uniqueScores = Object.values(highestScores)
             .sort((a, b) => b.score - a.score)
             .slice(0, 10);
 
-        // Atualizar cache
-        cachedScores = uniqueScores;
-        lastUpdateTime = Date.now();
+        // Atualizar cache apenas se tiver dados válidos
+        if (uniqueScores.length > 0) {
+            cachedScores = uniqueScores;
+            lastUpdateTime = Date.now();
+        }
         
         return uniqueScores;
     } catch (error) {
         console.error('Erro ao buscar pontuações:', error);
+        // Em caso de erro, retornar cache ou array vazio
         return cachedScores || [];
     }
 }
@@ -522,34 +520,42 @@ function drawRankingScreen() {
     ctx.font = '24px Orbitron';
     ctx.fillStyle = '#fff';
     ctx.fillText(`Sua Posição: ${playerPosition}   |   Sua Pontuação: ${score} pts`, canvas.width/2, 70);
-    
+
     // Atualizar a posição do jogador em background
     getPlayerRanking(playerName, score).then(pos => {
         playerPosition = pos;
     });
     
     // Desenhar scores
-    if (cachedScores) {
+    if (!cachedScores || cachedScores.length === 0) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.fillText('Carregando ranking...', canvas.width/2, 220);
+        
+        // Tentar buscar scores novamente
+        fetchAndCacheScores();
+    } else {
         // Top 3 começa mais acima
         cachedScores.slice(0, 3).forEach((highScore, index) => {
-            const yPos = 110 + (index * 30);  // Reduzido de 120 para 110 e de 32 para 30
+            const yPos = 110 + (index * 30);
             const rectHeight = 25;
             const rectY = yPos - rectHeight/2;
             const textY = yPos + 5;
             
-            // Fundo com destaque para top 3 (altura menor)
+            // Fundo com destaque para top 3
             ctx.fillStyle = highScore.name === playerName ? 
                 'rgba(0, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)';
             ctx.fillRect(canvas.width/2 - 250, rectY, 500, rectHeight);
             
-            // Badge com destaque (fonte menor)
+            // Badge com destaque
             ctx.fillStyle = '#fff';
             ctx.font = '18px Orbitron';
             const badge = drawFuturisticBadge(index + 1);
             ctx.textAlign = 'center';
             ctx.fillText(badge, canvas.width/2 - 180, textY);
             
-            // Nome e pontuação com destaque
+            // Nome e pontuação
             const maxNameLength = 15;
             const displayName = highScore.name.length > maxNameLength ? 
                 highScore.name.substring(0, maxNameLength) + '...' : 
@@ -564,23 +570,20 @@ function drawRankingScreen() {
             ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 230, textY);
         });
 
-        // Posições 4-10 começam mais acima e mais compactas
+        // Posições 4-10
         cachedScores.slice(3, 10).forEach((highScore, index) => {
-            const yPos = 210 + (index * 23);  // Reduzido de 220 para 210 e de 25 para 23
+            const yPos = 210 + (index * 23);
             
-            // Fundo mais sutil
             ctx.fillStyle = highScore.name === playerName ? 
                 'rgba(0, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
             ctx.fillRect(canvas.width/2 - 200, yPos - 15, 400, 25);
             
-            // Badge menor
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '14px Orbitron';
             const badge = drawFuturisticBadge(index + 4);
             ctx.textAlign = 'center';
             ctx.fillText(badge, canvas.width/2 - 150, yPos);
             
-            // Nome e pontuação menores
             const maxNameLength = 15;
             const displayName = highScore.name.length > maxNameLength ? 
                 highScore.name.substring(0, maxNameLength) + '...' : 
@@ -594,13 +597,9 @@ function drawRankingScreen() {
             ctx.textAlign = 'right';
             ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 180, yPos);
         });
-    } else {
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText('Carregando ranking...', canvas.width/2, 220);
     }
 
-    // Instrução para reiniciar mais abaixo e centralizada
+    // Instrução para reiniciar
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
     ctx.font = '18px Orbitron';
