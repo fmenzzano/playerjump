@@ -91,6 +91,9 @@ let lastCountdownUpdate = 0;
 // Ajustar o intervalo da contagem
 const COUNTDOWN_INTERVAL = 600; // Reduzido de 1000ms para 600ms
 
+// Detectar se é dispositivo móvel
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 // Função para redimensionar o canvas
 function resizeCanvas() {
     const container = document.querySelector('.game-container');
@@ -675,29 +678,29 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Modificar o event listener de keydown
-document.addEventListener('keydown', (event) => {
-    const prompt = document.querySelector('.edit-name-prompt');
-    const input = document.getElementById('nameInput');
-    
-    if (document.activeElement === input) return;
-    if (prompt.style.display === 'block') {
-        event.preventDefault();
-        return;
-    }
-
-    if (event.code === 'Space') {
+// Event listener específico para desktop (mouse e teclado)
+if (!isMobile) {
+    // Listener para mouse
+    canvas.addEventListener('mousedown', (event) => {
+        // Prevenir comportamentos padrão
         event.preventDefault();
         
+        // Verificar se está no prompt de nome
+        const prompt = document.querySelector('.edit-name-prompt');
+        if (prompt.style.display === 'block' || isEditingName) {
+            return;
+        }
+        
+        // Se o jogo não começou, iniciar
         if (!gameStarted && !gameOver && !countdownActive) {
             startGame();
             return;
         }
-
+        
+        // Se estiver em game over
         if (gameOver) {
             if (!showingRanking) {
                 showingRanking = true;
-                // Aguardar o salvamento da pontuação antes de mostrar o ranking
                 if (score > 0) {
                     saveHighScore(score).then(() => {
                         fetchAndCacheScores();
@@ -710,47 +713,89 @@ document.addEventListener('keydown', (event) => {
             }
             return;
         }
-
+        
+        // Se o jogo está em andamento, pular
         if (gameStarted && !gameOver) {
             jump();
         }
-    }
-});
+    });
 
-// Adicionar event listener para o input
-document.getElementById('nameInput').addEventListener('keypress', (event) => {
-    if (event.key === 'Enter') {
-        handleNameInput();
-    }
-});
-
-// Adicionar event listener para os botões
-document.querySelector('.save-button').addEventListener('click', handleNameInput);
-document.querySelector('.skip-button').addEventListener('click', skipNameEdit);
-
-// Otimizar o event listener de touch para Android
-document.addEventListener('touchstart', (event) => {
-    // Prevenir comportamentos padrão apenas se necessário
-    if (event.target === canvas) {
-        event.preventDefault();
+    // Listener para teclado
+    document.addEventListener('keydown', (event) => {
+        const prompt = document.querySelector('.edit-name-prompt');
+        const input = document.getElementById('nameInput');
         
-        // Verificar se não está editando nome
-        if (isEditingName) return;
-        
-        // Verificar se está no game over
-        if (gameOver) {
-            if (!showingRanking) {
-                showingRanking = true;
-            } else {
-                resetGame();  // Função auxiliar para resetar o jogo
-            }
+        if (document.activeElement === input) return;
+        if (prompt.style.display === 'block') {
+            event.preventDefault();
             return;
         }
-        
-        // Executar pulo
-        jump();
-    }
-}, { passive: true });  // Usar passive: true quando possível
+
+        if (event.code === 'Space') {
+            event.preventDefault();
+            
+            if (!gameStarted && !gameOver && !countdownActive) {
+                startGame();
+                return;
+            }
+
+            if (gameOver) {
+                if (!showingRanking) {
+                    showingRanking = true;
+                    // Aguardar o salvamento da pontuação antes de mostrar o ranking
+                    if (score > 0) {
+                        saveHighScore(score).then(() => {
+                            fetchAndCacheScores();
+                        });
+                    } else {
+                        fetchAndCacheScores();
+                    }
+                } else {
+                    resetGame();
+                }
+                return;
+            }
+
+            if (gameStarted && !gameOver) {
+                jump();
+            }
+        }
+    });
+}
+
+// Event listener específico para mobile (touch)
+if (isMobile) {
+    document.addEventListener('touchstart', (event) => {
+        // Prevenir comportamentos padrão apenas se necessário
+        if (event.target === canvas) {
+            event.preventDefault();
+            
+            // Verificar se não está editando nome
+            if (isEditingName) return;
+            
+            // Verificar se está no game over
+            if (gameOver) {
+                if (!showingRanking) {
+                    showingRanking = true;
+                } else {
+                    resetGame();
+                }
+                return;
+            }
+            
+            // Se o jogo não começou, iniciar
+            if (!gameStarted && !gameOver && !countdownActive) {
+                startGame();
+                return;
+            }
+            
+            // Executar pulo
+            if (gameStarted && !gameOver) {
+                jump();
+            }
+        }
+    }, { passive: false });
+}
 
 // Função auxiliar para resetar o jogo
 function resetGame() {
