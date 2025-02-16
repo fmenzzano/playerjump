@@ -16,7 +16,7 @@ const MIN_GAP = ELEMENT_SIZE * 1.5;  // Espaçamento vertical mínimo (93 pixels
 // Configurações do jogador ajustadas por dispositivo
 const player = {
     x: 150,
-    y: canvas.height/2,
+    y: canvas.height/3,
     width: ELEMENT_SIZE,    
     height: ELEMENT_SIZE,   
     gravity: isAndroid ? 0.4 : 0.6,  // Gravidade reduzida para Android
@@ -82,6 +82,14 @@ const UPDATE_INTERVAL = 2000; // 2 segundos entre atualizações
 // Adicionar variáveis de controle de retry
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 segundo
+
+// Adicionar variáveis para controle do contador
+let countdownActive = false;
+let countdownTime = 3;
+let lastCountdownUpdate = 0;
+
+// Ajustar o intervalo da contagem
+const COUNTDOWN_INTERVAL = 600; // Reduzido de 1000ms para 600ms
 
 // Função para redimensionar o canvas
 function resizeCanvas() {
@@ -421,38 +429,21 @@ async function fetchAndCacheScores() {
     try {
         console.log('Buscando scores...');
         
-        // Buscar todos os scores
+        // Buscar top 10 usando uma query mais precisa
         const { data: scores, error } = await supabaseClient
-            .from('scores')
-            .select('*')
-            .order('score', { ascending: false });
+            .rpc('get_top_10_scores');  // Vamos criar esta função no Supabase
 
         if (error) throw error;
         if (!scores) return cachedScores || [];
 
-        // Filtrar maiores pontuações por jogador
-        const highestScores = scores.reduce((acc, current) => {
-            if (!acc[current.name] || current.score > acc[current.name].score) {
-                acc[current.name] = current;
-            }
-            return acc;
-        }, {});
-
-        // Ordenar e pegar top 10
-        const uniqueScores = Object.values(highestScores)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 10);
-
-        // Atualizar cache apenas se tiver dados válidos
-        if (uniqueScores.length > 0) {
-            cachedScores = uniqueScores;
-            lastUpdateTime = Date.now();
-        }
+        // Atualizar cache
+        cachedScores = scores;
+        lastUpdateTime = Date.now();
         
-        return uniqueScores;
+        console.log('Scores carregados:', scores.length);
+        return scores;
     } catch (error) {
         console.error('Erro ao buscar pontuações:', error);
-        // Em caso de erro, retornar cache ou array vazio
         return cachedScores || [];
     }
 }
@@ -533,29 +524,26 @@ function drawRankingScreen() {
         ctx.textAlign = 'center';
         ctx.fillText('Carregando ranking...', canvas.width/2, 220);
         
-        // Tentar buscar scores novamente
         fetchAndCacheScores();
     } else {
-        // Top 3 começa mais acima
+        // Top 3 com menos espaço
         cachedScores.slice(0, 3).forEach((highScore, index) => {
-            const yPos = 110 + (index * 30);
-            const rectHeight = 25;
+            const yPos = 100 + (index * 28);  // Reduzido de 30 para 28
+            const rectHeight = 24;  // Reduzido de 25 para 24
             const rectY = yPos - rectHeight/2;
             const textY = yPos + 5;
             
-            // Fundo com destaque para top 3
+            // Resto do código do top 3 igual
             ctx.fillStyle = highScore.name === playerName ? 
                 'rgba(0, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)';
             ctx.fillRect(canvas.width/2 - 250, rectY, 500, rectHeight);
             
-            // Badge com destaque
             ctx.fillStyle = '#fff';
             ctx.font = '18px Orbitron';
             const badge = drawFuturisticBadge(index + 1);
             ctx.textAlign = 'center';
             ctx.fillText(badge, canvas.width/2 - 180, textY);
             
-            // Nome e pontuação
             const maxNameLength = 15;
             const displayName = highScore.name.length > maxNameLength ? 
                 highScore.name.substring(0, maxNameLength) + '...' : 
@@ -570,19 +558,19 @@ function drawRankingScreen() {
             ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 230, textY);
         });
 
-        // Posições 4-10
-        cachedScores.slice(3, 10).forEach((highScore, index) => {
-            const yPos = 210 + (index * 23);
+        // Posições 4-10 mais compactas
+        cachedScores.slice(3).forEach((highScore, index) => {
+            const yPos = 185 + (index * 22);  // Começar mais próximo do top 3 e reduzir espaçamento
             
             ctx.fillStyle = highScore.name === playerName ? 
                 'rgba(0, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
-            ctx.fillRect(canvas.width/2 - 200, yPos - 15, 400, 25);
+            ctx.fillRect(canvas.width/2 - 200, yPos - 10, 400, 20);  // Retângulo menor
             
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.font = '14px Orbitron';
             const badge = drawFuturisticBadge(index + 4);
             ctx.textAlign = 'center';
-            ctx.fillText(badge, canvas.width/2 - 150, yPos);
+            ctx.fillText(badge, canvas.width/2 - 150, yPos + 4);
             
             const maxNameLength = 15;
             const displayName = highScore.name.length > maxNameLength ? 
@@ -591,11 +579,11 @@ function drawRankingScreen() {
             
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.textAlign = 'left';
-            ctx.fillText(displayName, canvas.width/2 - 100, yPos);
+            ctx.fillText(displayName, canvas.width/2 - 100, yPos + 4);
             
             ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
             ctx.textAlign = 'right';
-            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 180, yPos);
+            ctx.fillText(`${highScore.score} pts`, canvas.width/2 + 180, yPos + 4);
         });
     }
 
@@ -632,7 +620,11 @@ function draw() {
 
     // Verificar se o jogo não começou
     if (!gameStarted) {
-        drawStartScreen();
+        if (countdownActive) {
+            drawCountdown();
+        } else {
+            drawStartScreen();
+        }
         return;
     }
 
@@ -697,18 +689,22 @@ document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
         event.preventDefault();
         
-        if (!gameStarted && !gameOver) {
-            gameStarted = true;
+        if (!gameStarted && !gameOver && !countdownActive) {
+            startGame();
             return;
         }
 
         if (gameOver) {
             if (!showingRanking) {
                 showingRanking = true;
-                // Buscar scores após salvar a pontuação
-                setTimeout(() => {
+                // Aguardar o salvamento da pontuação antes de mostrar o ranking
+                if (score > 0) {
+                    saveHighScore(score).then(() => {
+                        fetchAndCacheScores();
+                    });
+                } else {
                     fetchAndCacheScores();
-                }, 500);
+                }
             } else {
                 resetGame();
             }
@@ -727,6 +723,10 @@ document.getElementById('nameInput').addEventListener('keypress', (event) => {
         handleNameInput();
     }
 });
+
+// Adicionar event listener para os botões
+document.querySelector('.save-button').addEventListener('click', handleNameInput);
+document.querySelector('.skip-button').addEventListener('click', skipNameEdit);
 
 // Otimizar o event listener de touch para Android
 document.addEventListener('touchstart', (event) => {
@@ -754,14 +754,21 @@ document.addEventListener('touchstart', (event) => {
 
 // Função auxiliar para resetar o jogo
 function resetGame() {
+    // Resetar estados do jogo
     gameOver = false;
     showingRanking = false;
     score = 0;
     distance = 0;
     currentSpeed = INITIAL_SPEED;
     obstacles.length = 0;
-    player.y = canvas.height/2;
+    player.y = canvas.height/3;
     player.velocity = 0;
+
+    // Iniciar contagem regressiva
+    countdownActive = true;
+    countdownTime = 3;
+    lastCountdownUpdate = Date.now();
+    gameStarted = false;
 }
 
 // Otimizar a prevenção de scroll
@@ -773,7 +780,7 @@ document.body.addEventListener('touchmove', (event) => {
 
 // Otimizar a detecção de toque no botão
 function handleTouchStart(event) {
-    if (!gameStarted && !gameOver && !isEditingName) {
+    if (!gameStarted && !gameOver && !isEditingName && !countdownActive) {
         const touch = event.touches[0];
         const rect = canvas.getBoundingClientRect();
         const x = (touch.clientX - rect.left) / canvasScale;
@@ -791,9 +798,18 @@ canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
 
 // Modificar a função showEditNamePrompt
 function showEditNamePrompt() {
+    console.log('=== showEditNamePrompt iniciado ===');
     const prompt = document.querySelector('.edit-name-prompt');
     const input = document.getElementById('nameInput');
     const gameContainer = document.querySelector('.game-container');
+    
+    console.log('Estado do jogo antes do prompt:', {
+        isEditingName,
+        hasShownNamePrompt,
+        gameStarted,
+        gameOver,
+        countdownActive
+    });
     
     // Adicionar blur ao fundo
     gameContainer.classList.add('blur');
@@ -809,60 +825,92 @@ function showEditNamePrompt() {
     input.value = playerName === 'Desconhecido' ? '' : playerName;
     prompt.style.display = 'block';
     
-    // Focar no input após um pequeno delay e selecionar todo o texto
+    console.log('Prompt mostrado com sucesso');
+    console.log('Input preenchido com:', input.value);
+    
+    // Focar no input após um pequeno delay
     setTimeout(() => {
         input.focus();
         input.select();
+        console.log('Input focado e selecionado');
     }, 100);
+    
+    console.log('=== showEditNamePrompt finalizado ===');
 }
 
 // Modificar a função handleNameInput
 function handleNameInput() {
+    console.log('=== handleNameInput iniciado ===');
     const input = document.getElementById('nameInput');
     const prompt = document.querySelector('.edit-name-prompt');
-    const gameContainer = document.querySelector('.game-container');
     const newName = input.value.trim();
+    
+    console.log('Nome atual:', playerName);
+    console.log('Novo nome:', newName);
+    console.log('Estado do jogo:', {
+        isEditingName,
+        hasShownNamePrompt,
+        gameStarted,
+        gameOver,
+        countdownActive
+    });
     
     if (newName) {
         playerName = newName;
         localStorage.setItem('playerName', playerName);
+        console.log('Nome salvo com sucesso:', playerName);
     }
     
+    // Esconder prompt
     prompt.style.display = 'none';
-    gameContainer.classList.remove('blur');
-    hasShownNamePrompt = true;
-    isEditingName = false;  // Resetar estado de edição
+    document.querySelector('.game-container').classList.remove('blur');
     
-    // Reiniciar o estado do jogo
-    gameStarted = false;
-    gameOver = false;
-    score = 0;
-    obstacles.length = 0;
-    player.y = canvas.height/2;
-    player.velocity = 0;
+    // Resetar estados
+    hasShownNamePrompt = true;
+    isEditingName = false;
+    
+    console.log('Estados após salvar:', {
+        isEditingName,
+        hasShownNamePrompt,
+        gameStarted,
+        gameOver,
+        countdownActive
+    });
+    console.log('=== handleNameInput finalizado ===');
 }
 
-// Modificar a função skipNameEdit
+// Modificar a função skipNameEdit para ser igualmente simples
 function skipNameEdit() {
     const prompt = document.querySelector('.edit-name-prompt');
-    const gameContainer = document.querySelector('.game-container');
     
+    // Esconder prompt
     prompt.style.display = 'none';
-    gameContainer.classList.remove('blur');
-    hasShownNamePrompt = true;
-    isEditingName = false;  // Resetar estado de edição
+    document.querySelector('.game-container').classList.remove('blur');
     
-    // Reiniciar o estado do jogo
-    gameStarted = false;
-    gameOver = false;
-    score = 0;
-    obstacles.length = 0;
-    player.y = canvas.height/2;
-    player.velocity = 0;
+    // Resetar estados
+    hasShownNamePrompt = true;
+    isEditingName = false;
 }
 
-// Remover o event listener handleInputKeypress que não é mais necessário
-window.addEventListener('load', () => {
+// Modificar a forma como adicionamos os event listeners dos botões
+function setupNameButtons() {
+    // Remover event listeners antigos se existirem
+    const saveButton = document.querySelector('.save-button');
+    const skipButton = document.querySelector('.skip-button');
+    
+    // Limpar onclick inline
+    saveButton.removeAttribute('onclick');
+    skipButton.removeAttribute('onclick');
+    
+    // Adicionar novos event listeners
+    saveButton.addEventListener('click', handleNameInput);
+    skipButton.addEventListener('click', skipNameEdit);
+}
+
+// Chamar a função de setup quando o documento carregar
+document.addEventListener('DOMContentLoaded', () => {
+    setupNameButtons();
+    
     // Iniciar o jogo
     gameLoop();
     
@@ -1025,15 +1073,241 @@ async function showGlobalRanking() {
     }
 }
 
-// Otimizar o cache do ranking
-let lastRankingUpdate = 0;
-const RANKING_UPDATE_INTERVAL = 2000;  // Atualizar a cada 2 segundos
+// Adicionar as funções de doação
+function showDonationQR() {
+    const modal = document.getElementById('donation-modal');
+    modal.style.display = 'flex';
+}
 
-function updateRankingIfNeeded() {
+// Adicionar event listeners para o modal de doação
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('donation-modal');
+    const closeBtn = document.querySelector('.close-donation');
+
+    // Fechar ao clicar no X
+    closeBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+
+    // Fechar ao clicar fora do modal
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+});
+
+// Adicionar função para salvar pontuação
+async function saveHighScore(score) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('scores')
+            .insert([
+                {
+                    name: playerName,
+                    score: score
+                }
+            ]);
+
+        if (error) throw error;
+
+        // Forçar atualização do cache após salvar nova pontuação
+        cachedScores = null;
+        
+        // Buscar scores atualizados
+        await fetchAndCacheScores();
+
+        // Atualizar posição do jogador
+        getPlayerRanking(playerName, score).then(pos => {
+            playerPosition = pos;
+        });
+
+        return data;
+    } catch (error) {
+        console.error('Erro ao salvar pontuação:', error);
+    }
+}
+
+// Modificar o event listener do mouse
+canvas.addEventListener('mousedown', (event) => {
+    // Prevenir comportamentos padrão
+    event.preventDefault();
+    
+    // Verificar se está no prompt de nome
+    const prompt = document.querySelector('.edit-name-prompt');
+    if (prompt.style.display === 'block' || isEditingName) {
+        return;
+    }
+    
+    // Se o jogo não começou, iniciar
+    if (!gameStarted && !gameOver && !countdownActive) {
+        startGame();
+        return;
+    }
+    
+    // Se estiver em game over
+    if (gameOver) {
+        if (!showingRanking) {
+            showingRanking = true;
+            if (score > 0) {
+                saveHighScore(score).then(() => {
+                    fetchAndCacheScores();
+                });
+            } else {
+                fetchAndCacheScores();
+            }
+        } else {
+            resetGame();
+        }
+        return;
+    }
+    
+    // Se o jogo está em andamento, pular
+    if (gameStarted && !gameOver) {
+        jump();
+    }
+});
+
+// Opcional: Adicionar também suporte para botão direito do mouse
+canvas.addEventListener('contextmenu', (event) => {
+    event.preventDefault(); // Prevenir menu de contexto
+});
+
+// Modificar a função de início do jogo
+function startGame() {
+    if (!countdownActive && !gameStarted) {
+        countdownActive = true;
+        countdownTime = 3;
+        lastCountdownUpdate = Date.now();
+        gameStarted = false;  // Garantir que o jogo só começa após a contagem
+    }
+}
+
+// Adicionar função para desenhar o contador
+function drawCountdown() {
+    // Desenhar o jogo normalmente no fundo
+    drawGameBackground();
+    drawParticles();
+    
+    // Desenhar player
+    ctx.save();
+    ctx.drawImage(playerImg, player.x, player.y, ELEMENT_SIZE, ELEMENT_SIZE);
+    ctx.restore();
+
+    // Desenhar obstáculos existentes
+    obstacles.forEach(obstacle => {
+        ctx.save();
+        ctx.drawImage(starImg, obstacle.x, obstacle.y - ELEMENT_SIZE, ELEMENT_SIZE, ELEMENT_SIZE);
+        ctx.drawImage(starImg, obstacle.x, obstacle.y + obstacle.gap, ELEMENT_SIZE, ELEMENT_SIZE);
+        ctx.restore();
+    });
+
+    // Verificar tempo para atualizar contador
     const now = Date.now();
-    if (now - lastRankingUpdate > RANKING_UPDATE_INTERVAL) {
-        fetchAndCacheScores();
-        lastRankingUpdate = now;
+    if (now - lastCountdownUpdate >= COUNTDOWN_INTERVAL) {
+        countdownTime--;
+        lastCountdownUpdate = now;
+        
+        if (countdownTime < 0) {
+            countdownActive = false;
+            gameStarted = true;
+            return;
+        }
+    }
+
+    // Adicionar overlay semi-transparente
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Desenhar o número ou "GO!"
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    if (countdownTime === 0) {
+        // Desenhar "GO!" com mais destaque
+        ctx.font = 'bold 100px Orbitron';
+        ctx.fillStyle = '#0f0';
+        ctx.shadowColor = '#0f0';
+        ctx.shadowBlur = 30;
+        ctx.fillText('GO!', canvas.width/2, canvas.height/2);
+        
+        // Adicionar brilho extra
+        ctx.globalAlpha = 0.5;
+        ctx.fillText('GO!', canvas.width/2, canvas.height/2);
+    } else {
+        // Desenhar número com mais destaque
+        ctx.font = 'bold 120px Orbitron';
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 30;
+        ctx.fillText(countdownTime, canvas.width/2, canvas.height/2);
+        
+        // Adicionar brilho extra
+        ctx.globalAlpha = 0.5;
+        ctx.fillText(countdownTime, canvas.width/2, canvas.height/2);
+    }
+    ctx.restore();
+}
+
+// Função auxiliar para desenhar o fundo do jogo
+function drawGameBackground() {
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#000000');
+    gradient.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// Adicionar event listener para redimensionamento
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+
+// Adicionar prevenção de zoom em dispositivos móveis
+document.addEventListener('touchmove', (event) => {
+    if (event.touches.length > 1) {
+        event.preventDefault();
+    }
+}, { passive: false });
+
+// Desabilitar duplo toque para zoom
+document.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+});
+
+// Adicionar listener para ajustar o prompt quando a orientação mudar
+window.addEventListener('orientationchange', () => {
+    adjustEditPromptForMobile();
+});
+
+// Melhorar a função que mostra o ranking global
+async function showGlobalRanking() {
+    const globalRanking = document.querySelector('.global-ranking');
+    const rankingList = document.querySelector('.ranking-list');
+    
+    try {
+        // Mostrar loading
+        rankingList.innerHTML = '<div class="loading">Carregando ranking...</div>';
+        globalRanking.style.display = 'block';
+        
+        const scores = await fetchAndCacheScores();
+        
+        if (scores.length === 0) {
+            rankingList.innerHTML = '<div class="no-scores">Nenhuma pontuação registrada ainda</div>';
+            return;
+        }
+
+        rankingList.innerHTML = scores.map((score, index) => `
+            <div class="ranking-item ${score.name === playerName ? 'current-player' : ''}">
+                <span class="position">${drawFuturisticBadge(index + 1)}</span>
+                <span class="player-name">${score.name}</span>
+                <span class="score">${score.score} pts</span>
+                <span class="date">${formatDate(score.date)}</span>
+            </div>
+        `).join('');
+    } catch (error) {
+        rankingList.innerHTML = '<div class="error">Erro ao carregar ranking</div>';
+        console.error('Erro ao mostrar ranking:', error);
     }
 }
 
@@ -1075,6 +1349,12 @@ async function saveHighScore(score) {
 
         if (error) throw error;
 
+        // Forçar atualização do cache após salvar nova pontuação
+        cachedScores = null;
+        
+        // Buscar scores atualizados
+        await fetchAndCacheScores();
+
         // Atualizar posição do jogador
         getPlayerRanking(playerName, score).then(pos => {
             playerPosition = pos;
@@ -1084,4 +1364,49 @@ async function saveHighScore(score) {
     } catch (error) {
         console.error('Erro ao salvar pontuação:', error);
     }
-} 
+}
+
+// Modificar o event listener do mouse
+canvas.addEventListener('mousedown', (event) => {
+    // Prevenir comportamentos padrão
+    event.preventDefault();
+    
+    // Verificar se está no prompt de nome
+    const prompt = document.querySelector('.edit-name-prompt');
+    if (prompt.style.display === 'block' || isEditingName) {
+        return;
+    }
+    
+    // Se o jogo não começou, iniciar
+    if (!gameStarted && !gameOver && !countdownActive) {
+        startGame();
+        return;
+    }
+    
+    // Se estiver em game over
+    if (gameOver) {
+        if (!showingRanking) {
+            showingRanking = true;
+            if (score > 0) {
+                saveHighScore(score).then(() => {
+                    fetchAndCacheScores();
+                });
+            } else {
+                fetchAndCacheScores();
+            }
+        } else {
+            resetGame();
+        }
+        return;
+    }
+    
+    // Se o jogo está em andamento, pular
+    if (gameStarted && !gameOver) {
+        jump();
+    }
+});
+
+// Opcional: Adicionar também suporte para botão direito do mouse
+canvas.addEventListener('contextmenu', (event) => {
+    event.preventDefault(); // Prevenir menu de contexto
+}); 
